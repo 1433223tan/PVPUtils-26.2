@@ -7,6 +7,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
@@ -15,6 +16,8 @@ import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+
+import java.util.List;
 
 public class KeystrokesRenderer {
     private static final KeystrokesRenderer INSTANCE = new KeystrokesRenderer();
@@ -204,6 +207,9 @@ public class KeystrokesRenderer {
 
     private void renderGl(Minecraft client, int x, int y, float scale, int leftCps, int rightCps) {
         ensureNativeLoaded();
+        if (Config.keystrokesMode == Config.KeystrokesMode.BLUR) {
+            renderBlurKeyBackgrounds(client, x, y, scale);
+        }
         Canvas canvas = glBackend.begin(mainFramebufferId(client));
         if (canvas == null) return;
         try {
@@ -237,6 +243,30 @@ public class KeystrokesRenderer {
         } finally {
             glBackend.end();
         }
+    }
+
+    private void renderBlurKeyBackgrounds(Minecraft client, int x, int y, float scale) {
+        int mouseY = (KEY_SIZE + GAP) * 2;
+        int leftMouseW = (TOTAL_W - GAP) / 2;
+        int rightMouseW = TOTAL_W - GAP - leftMouseW;
+        int bottomY = (KEY_SIZE + GAP) * 3;
+
+        List<SkiaBlurRenderer.Region> regions = List.of(
+                blurRegion(x, y, scale, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE),
+                blurRegion(x, y, scale, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+                blurRegion(x, y, scale, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+                blurRegion(x, y, scale, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+                blurRegion(x, y, scale, 0, mouseY, leftMouseW, KEY_SIZE),
+                blurRegion(x, y, scale, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE),
+                blurRegion(x, y, scale, 0, bottomY, leftMouseW, KEY_SIZE),
+                blurRegion(x, y, scale, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE)
+        );
+        SkiaBlurRenderer.getInstance().renderRegions(client, regions, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+    }
+
+    private SkiaBlurRenderer.Region blurRegion(int baseX, int baseY, float scale, float x, float y, float width, float height) {
+        return new SkiaBlurRenderer.Region(baseX + x * scale, baseY + y * scale, width * scale, height * scale,
+                Math.min(7.0f, height * 0.32f) * scale);
     }
 
     private int mainFramebufferId(Minecraft client) {
@@ -313,7 +343,7 @@ public class KeystrokesRenderer {
             canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), glowPaint);
         }
 
-        bgPaint.setColor(BG_COLOR);
+        bgPaint.setColor(Config.keystrokesMode == Config.KeystrokesMode.BLUR ? 0x00000000 : BG_COLOR);
         canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), bgPaint);
 
         if (press > 0.01f) {

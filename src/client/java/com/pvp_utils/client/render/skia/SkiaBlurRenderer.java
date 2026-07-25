@@ -20,6 +20,7 @@ import net.minecraft.client.Minecraft;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.lwjgl.opengl.GL45.*;
@@ -69,6 +70,35 @@ public final class SkiaBlurRenderer {
         }
     }
 
+    public boolean renderRegions(Minecraft client, List<Region> regions, int tintColor, float strength) {
+        if (client == null || client.getWindow() == null || client.getMainRenderTarget() == null || regions == null || regions.isEmpty()) {
+            return false;
+        }
+        float left = Float.MAX_VALUE;
+        float top = Float.MAX_VALUE;
+        float right = -Float.MAX_VALUE;
+        float bottom = -Float.MAX_VALUE;
+        for (Region region : regions) {
+            left = Math.min(left, region.x());
+            top = Math.min(top, region.y());
+            right = Math.max(right, region.x() + region.width());
+            bottom = Math.max(bottom, region.y() + region.height());
+        }
+
+        int framebufferId = mainFramebufferId(client);
+        Canvas canvas = framebufferBackend.begin(framebufferId);
+        DirectContext context = framebufferBackend.getContext();
+        if (canvas == null || context == null) {
+            framebufferBackend.end();
+            return false;
+        }
+        try {
+            return renderRegions(canvas, context, client, framebufferId, regions, left, top, right - left, bottom - top, tintColor, strength);
+        } finally {
+            framebufferBackend.end();
+        }
+    }
+
     public boolean render(Canvas canvas, DirectContext context, Minecraft client, int sourceFramebufferId,
                           float x, float y, float width, float height, float radius, int tintColor, float strength) {
         if (canvas == null || context == null || client == null || client.getWindow() == null) return false;
@@ -96,6 +126,38 @@ public final class SkiaBlurRenderer {
 
             tintPaint.setColor(tintColor);
             canvas.drawRRect(RRect.makeXYWH(x, y, width, height, radius), tintPaint);
+            return true;
+        } finally {
+            blurPaint.setImageFilter(null);
+            canvas.restore();
+        }
+    }
+
+    private boolean renderRegions(Canvas canvas, DirectContext context, Minecraft client, int sourceFramebufferId,
+                                  List<Region> regions, float x, float y, float width, float height, int tintColor, float strength) {
+        ensureNativeLoaded();
+        float scale = (float) client.getWindow().getGuiScale();
+        float blurSigma = blurSigma(strength);
+        Capture capture = captureRegion(context, client, sourceFramebufferId, x, y, width, height, scale, Math.max(MIN_CAPTURE_MARGIN, blurSigma * 2f));
+        if (capture.image == null) return false;
+
+        ensureFilters(blurSigma);
+        canvas.save();
+        try {
+            blurPaint.setImageFilter(encodeFilter);
+            frostPaint.setColor(0x10000000);
+            tintPaint.setColor(tintColor);
+            Rect source = Rect.makeXYWH(0f, 0f, capture.width, capture.height);
+            Rect destination = Rect.makeXYWH(capture.dstX, capture.dstY, capture.dstW, capture.dstH);
+            for (Region region : regions) {
+                RRect shape = RRect.makeXYWH(region.x(), region.y(), region.width(), region.height(), region.radius());
+                canvas.save();
+                canvas.clipRRect(shape, true);
+                canvas.drawImageRect(capture.image, source, destination, SamplingMode.LINEAR, blurPaint, true);
+                canvas.drawRRect(shape, frostPaint);
+                canvas.drawRRect(shape, tintPaint);
+                canvas.restore();
+            }
             return true;
         } finally {
             blurPaint.setImageFilter(null);
@@ -363,6 +425,8 @@ public final class SkiaBlurRenderer {
             this.dstH = dstH;
         }
     }
+
+    public record Region(float x, float y, float width, float height, float radius) {}
 
     private record CaptureTarget(int textureId, int framebufferId, int width, int height, Image image) {}
 }

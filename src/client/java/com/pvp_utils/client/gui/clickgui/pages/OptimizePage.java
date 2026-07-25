@@ -36,6 +36,11 @@ public class OptimizePage extends BasePage {
                         new SettingToggle(() -> Config.betterScoreboardVisualImprovement, v -> { Config.betterScoreboardVisualImprovement = v; Config.save(); })));
 
         modules.add(new SettingModule(
+                UiText.t("更好的物品栏", "Better Item Selector"),
+                UiText.t("使用 GPU 渲染圆角快捷栏和动画选中框", "Render a rounded GPU hotbar with an animated selector"),
+                new SettingToggle(() -> Config.betterItemSelector, v -> { Config.betterItemSelector = v; Config.save(); })));
+
+        modules.add(new SettingModule(
                 UiText.t("更好的鼠标逻辑", "Better Mouse Logic"),
                 UiText.t("改进鼠标指针的工作逻辑，让他更加简洁易用。（这只针对于物品栏）", "Improve how the mouse cursor works, making it cleaner and easier to use. (Inventory only)"),
                 new SettingToggle(() -> Config.betterMouseLogic, v -> { Config.betterMouseLogic = v; Config.save(); })));

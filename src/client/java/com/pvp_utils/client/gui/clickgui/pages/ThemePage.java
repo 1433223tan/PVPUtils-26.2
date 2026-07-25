@@ -25,9 +25,20 @@ public class ThemePage extends BasePage {
                                 () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : Config.targetHudMode == Config.TargetHudMode.BLUR ? 1 : 2,
                                 i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : i == 1 ? Config.TargetHudMode.BLUR : Config.TargetHudMode.LITE; Config.save(); }))
                 .addSub(UiText.t("按键显示", "Keystrokes"), UiText.t("选择按键显示样式", "Choose the Keystrokes style"),
-                        new SettingCycle(List.of("New", "Lite"),
-                                () -> Config.keystrokesMode == Config.KeystrokesMode.NEW ? 0 : 1,
-                                i -> { Config.keystrokesMode = i == 0 ? Config.KeystrokesMode.NEW : Config.KeystrokesMode.LITE; Config.save(); }))
+                        new SettingCycle(List.of("New", "Blur", "Lite"),
+                                () -> switch (Config.keystrokesMode) {
+                                    case NEW -> 0;
+                                    case BLUR -> 1;
+                                    case LITE -> 2;
+                                },
+                                i -> {
+                                    Config.keystrokesMode = switch (i) {
+                                        case 1 -> Config.KeystrokesMode.BLUR;
+                                        case 2 -> Config.KeystrokesMode.LITE;
+                                        default -> Config.KeystrokesMode.NEW;
+                                    };
+                                    Config.save();
+                                }))
                 .addSub(UiText.t("方块数量显示", "Block Count Display"), UiText.t("选择方块数量显示样式", "Choose the Block Count Display style"),
                         new SettingCycle(List.of("New", "Blur"),
                                 () -> Config.blockCountDisplayMode == Config.BlockCountDisplayMode.NEW ? 0 : 1,

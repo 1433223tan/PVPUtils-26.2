@@ -210,6 +210,7 @@ final class WebGUIModules {
                     module("Better Scoreboard", "更好的计分板", "Allows moving and scaling the scoreboard in the HUD editor.", "开启后可在 HUD 编辑器中拖动和缩放计分板", "betterScoreboard",
                             check("betterScoreboardHideScores", "Hide Red Numbers", "隐藏红色数字"),
                             check("betterScoreboardVisualImprovement", "Visual Improvement", "视觉改进")),
+                    module("Better Item Selector", "更好的物品栏", "Render a rounded GPU hotbar with an animated selector.", "使用 GPU 渲染圆角快捷栏和动画选中框", "betterItemSelector"),
                     module("Better Mouse Logic", "更好的鼠标逻辑", "Improve inventory mouse behavior.", "改进物品栏内鼠标指针的工作逻辑", "betterMouseLogic"),
                     module("Smooth Hotbar", "平滑快捷栏", "Make hotbar scrolling smooth.", "让快捷栏滚轮切换时带有平滑过渡", "smoothHotbarScrolling",
                             slider("smoothHotbarAnimationSpeed", "Animation Speed", "动画速度", 0.05, 0.99, 0.01))
