@@ -9,6 +9,8 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.PackResources;
+import net.minecraft.server.packs.repository.PackSource;
 import net.minecraft.server.packs.resources.IoSupplier;
 import net.minecraft.world.level.block.entity.SignText;
 
@@ -20,6 +22,8 @@ import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
 import java.util.IdentityHashMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +33,7 @@ public final class ServerTranslationContents {
     private static final Set<IdentityWeakReference> SERVER_CONTENTS = ConcurrentHashMap.newKeySet();
     private static final Map<SignKey, String[]> PENDING_SIGN_UPDATES = new ConcurrentHashMap<>();
     private static final Set<String> VANILLA_TRANSLATION_KEYS = loadVanillaTranslationKeys();
+    private static final Map<String, Set<String>> SERVER_PACK_TRANSLATION_KEYS = new HashMap<>();
 
     private ServerTranslationContents() {
     }
@@ -66,7 +71,7 @@ public final class ServerTranslationContents {
         }
         if (value instanceof Component component) {
             if (component.getContents() instanceof TranslatableContents contents) {
-                if (!VANILLA_TRANSLATION_KEYS.contains(contents.getKey())) {
+                if (!isAllowedTranslationKey(contents.getKey())) {
                     purgeCollectedContents();
                     SERVER_CONTENTS.add(new IdentityWeakReference(contents, QUEUE));
                 }
@@ -97,6 +102,41 @@ public final class ServerTranslationContents {
             PVPUtils.LOGGER.warn("Could not load vanilla translation keys", exception);
             return Set.of();
         }
+    }
+
+    private static synchronized boolean isAllowedTranslationKey(String key) {
+        if (VANILLA_TRANSLATION_KEYS.contains(key)) {
+            return true;
+        }
+
+        Set<String> activePackIds = new HashSet<>();
+        Set<String> translationKeys = new HashSet<>();
+        Minecraft.getInstance().getResourceManager().listPacks().forEach(pack -> {
+            if (pack.location().source() != PackSource.SERVER) {
+                return;
+            }
+            activePackIds.add(pack.packId());
+            translationKeys.addAll(SERVER_PACK_TRANSLATION_KEYS.computeIfAbsent(pack.packId(), ignored -> loadTranslationKeys(pack)));
+        });
+        SERVER_PACK_TRANSLATION_KEYS.keySet().retainAll(activePackIds);
+        return translationKeys.contains(key);
+    }
+
+    private static Set<String> loadTranslationKeys(PackResources pack) {
+        Set<String> keys = new HashSet<>();
+        for (String namespace : pack.getNamespaces(PackType.CLIENT_RESOURCES)) {
+            pack.listResources(PackType.CLIENT_RESOURCES, namespace, "lang", (id, resource) -> {
+                if (!id.getPath().endsWith(".json")) {
+                    return;
+                }
+                try (Reader reader = new InputStreamReader(resource.get(), StandardCharsets.UTF_8)) {
+                    keys.addAll(JsonParser.parseReader(reader).getAsJsonObject().keySet());
+                } catch (IOException | IllegalStateException exception) {
+                    PVPUtils.LOGGER.warn("Could not load translation keys from server resource pack {}", pack.packId(), exception);
+                }
+            });
+        }
+        return Set.copyOf(keys);
     }
 
     private static void purgeCollectedContents() {
