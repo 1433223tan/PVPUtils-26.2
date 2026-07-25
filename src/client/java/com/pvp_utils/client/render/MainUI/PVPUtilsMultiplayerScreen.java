@@ -15,11 +15,13 @@ import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
+import net.minecraft.SharedConstants;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ManageServerScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.ServerList;
+import net.minecraft.client.multiplayer.ServerStatusPinger;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -27,11 +29,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.server.network.EventLoopGroupHolder;
 
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class PVPUtilsMultiplayerScreen extends Screen {
     private final Screen parent;
@@ -41,6 +47,8 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     private final List<ServerData> servers = new ArrayList<>();
     private final List<Float> hover = new ArrayList<>();
     private final Map<Integer, Image> serverIcons = new HashMap<>();
+    private final ServerStatusPinger pinger = new ServerStatusPinger();
+    private ExecutorService pingExecutor;
     private Image defaultServerIcon;
     private ServerList serverList;
     private boolean pendingFrame;
@@ -97,6 +105,49 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         }
         selected = servers.isEmpty() ? -1 : Math.min(selected < 0 ? 0 : selected, servers.size() - 1);
         clampScroll();
+        pingServers();
+    }
+
+    private void pingServers() {
+        pinger.removeAll();
+        if (pingExecutor == null || pingExecutor.isShutdown()) {
+            pingExecutor = Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "PVPUtils-ServerPing");
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+        for (ServerData server : servers) {
+            server.setState(ServerData.State.PINGING);
+            server.motd = Component.empty();
+            server.status = Component.empty();
+            pingExecutor.execute(() -> {
+                try {
+                    pinger.pingServer(
+                            server,
+                            () -> minecraft.execute(() -> {
+                                if (serverList != null) serverList.save();
+                            }),
+                            () -> minecraft.execute(() -> server.setState(
+                                    server.protocol == SharedConstants.getCurrentVersion().protocolVersion()
+                                            ? ServerData.State.SUCCESSFUL
+                                            : ServerData.State.INCOMPATIBLE
+                            )),
+                            EventLoopGroupHolder.remote(minecraft.options.useNativeTransport())
+                    );
+                } catch (UnknownHostException exception) {
+                    minecraft.execute(() -> server.setState(ServerData.State.UNREACHABLE));
+                } catch (Exception exception) {
+                    minecraft.execute(() -> server.setState(ServerData.State.UNREACHABLE));
+                }
+            });
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        pinger.tick();
     }
 
     @Override
@@ -223,8 +274,19 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         } else {
             FontRenderer.drawText(canvas, "\uE88A", x + 26f, y + 39f, 25f, (Math.round(alpha * .86f) << 24) | 0xFFFFFF, FontRenderer.MATERIAL_SYMBOLS);
         }
-        FontRenderer.drawText(canvas, server.name, x + 66f, y + 26f, 15f, (alpha << 24) | 0xFFFFFF);
-        FontRenderer.drawText(canvas, server.ip, x + 66f, y + 46f, 11f, (Math.round(alpha * .72f) << 24) | 0xFFFFFF);
+        float rightX = x + w - 12f;
+        String pingText = pingText(server);
+        String playersText = playersText(server);
+        float reserved = Math.max(FontRenderer.measureTextWidth(pingText, 11f), FontRenderer.measureTextWidth(playersText, 11f)) + 18f;
+        float textWidth = Math.max(40f, w - 66f - reserved - 12f);
+        String serverName = fitText(server.name, 15f, textWidth);
+        String serverAddress = fitText(server.ip, 11f, textWidth);
+        FontRenderer.drawText(canvas, serverName, x + 66f, y + 26f, 15f, (alpha << 24) | 0xFFFFFF);
+        FontRenderer.drawText(canvas, serverAddress, x + 66f, y + 46f, 11f, (Math.round(alpha * .72f) << 24) | 0xFFFFFF);
+        FontRenderer.drawText(canvas, pingText, rightX - FontRenderer.measureTextWidth(pingText, 11f), y + 26f, 11f,
+                (Math.round(alpha * .92f) << 24) | pingColor(server));
+        FontRenderer.drawText(canvas, playersText, rightX - FontRenderer.measureTextWidth(playersText, 11f), y + 46f, 11f,
+                (Math.round(alpha * .72f) << 24) | 0xFFFFFF);
     }
 
     private void drawButton(Canvas canvas, float x, float y, float w, float h, String label, int alpha) {
@@ -347,6 +409,11 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         if (returningFromManageServer) {
             returningFromManageServer = false;
         } else {
+            pinger.removeAll();
+            if (pingExecutor != null) {
+                pingExecutor.shutdownNow();
+                pingExecutor = null;
+            }
             glBackend.destroy();
         }
         super.removed();
@@ -435,6 +502,36 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         int g = Math.round(((from >> 8) & 255) + (((to >> 8) & 255) - ((from >> 8) & 255)) * t);
         int b = Math.round((from & 255) + ((to & 255) - (from & 255)) * t);
         return (r << 16) | (g << 8) | b;
+    }
+
+    private String pingText(ServerData server) {
+        return switch (server.state()) {
+            case INITIAL, PINGING -> "Pinging...";
+            case UNREACHABLE -> "Offline";
+            case INCOMPATIBLE, SUCCESSFUL -> server.ping >= 0L ? server.ping + " ms" : "-- ms";
+        };
+    }
+
+    private String playersText(ServerData server) {
+        return server.players == null ? "-/-" : server.players.online() + "/" + server.players.max();
+    }
+
+    private int pingColor(ServerData server) {
+        if (server.state() == ServerData.State.UNREACHABLE) return 0xFF6B6B;
+        if (server.state() == ServerData.State.INITIAL || server.state() == ServerData.State.PINGING || server.ping < 0L) return 0xAEB8C2;
+        if (server.ping <= 80L) return 0x62E58B;
+        if (server.ping <= 150L) return 0xF2D46B;
+        if (server.ping <= 250L) return 0xFFAA5C;
+        return 0xFF6B6B;
+    }
+
+    private String fitText(String text, float size, float maxWidth) {
+        String value = text == null ? "" : text;
+        if (FontRenderer.measureTextWidth(value, size) <= maxWidth) return value;
+        while (value.length() > 1 && FontRenderer.measureTextWidth(value + "...", size) > maxWidth) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value + "...";
     }
 
     private int mainFramebufferId() {

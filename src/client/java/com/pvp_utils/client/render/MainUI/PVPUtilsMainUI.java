@@ -195,6 +195,7 @@ public class PVPUtilsMainUI extends Screen {
     @Override
     public void tick() {
         super.tick();
+        if (embeddedMultiplayer != null) embeddedMultiplayer.tick();
         if (embeddedAltManager != null) embeddedAltManager.tick();
     }
 
@@ -650,17 +651,17 @@ public class PVPUtilsMainUI extends Screen {
         if (a <= 0) return;
 
         String text = Config.isChinese
-                ? "点击左上角“Minecraft”标题可返回原版UI，右键则可以切换风格。"
-                : "Click the \"Minecraft\" title in the top-left to return to the vanilla UI. Right-click it to switch styles.";
+                ? "点击 PVPUtils 标题返回原版主界面 · 右键随机切换背景"
+                : "Click the PVPUtils title for the vanilla menu · Right-click to change the background";
         int textW = this.font.width(text);
         int x = (this.width - textW) / 2;
-        int y = this.height / 2;
+        int y = Math.max(12, Math.round(titleHitBox.y - 24f));
         int bgW = textW + 28;
-        int bgH = 28;
+        int bgH = 24;
         int bgX = (this.width - bgW) / 2;
-        int bgY = y - 15;
+        int bgY = y - 8;
         graphics.fill(bgX, bgY, bgX + bgW, bgY + bgH, (Math.round(alpha * 150f) << 24));
-        graphics.drawString(this.font, text, x, y - 4, (a << 24) | 0xFFFFFF, false);
+        graphics.drawString(this.font, text, x, y, (a << 24) | 0xFFFFFF, false);
     }
 
     private float entryAlpha() {
