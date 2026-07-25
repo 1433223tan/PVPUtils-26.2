@@ -1,17 +1,28 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.modules.impl.Tool.ServerConnectionOverlay;
+import com.pvp_utils.client.render.MainUI.PVPUtilsMultiplayerScreen;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(DisconnectedScreen.class)
 public abstract class DisconnectedScreenMixin {
+    @ModifyVariable(method = "<init>", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+    private static Screen pvp_utils$returnToCustomMultiplayer(Screen parent) {
+        if (parent instanceof JoinMultiplayerScreen) {
+            return new PVPUtilsMultiplayerScreen(null);
+        }
+        return parent;
+    }
+
     @Inject(method = "<init>(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/Component;)V", at = @At("TAIL"))
     private void pvp_utils$logSimpleDisconnect(Screen parent, Component title, Component reason, CallbackInfo ci) {
         ServerConnectionOverlay.logFailure(title, reason);

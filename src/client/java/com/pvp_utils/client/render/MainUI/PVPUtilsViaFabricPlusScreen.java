@@ -49,6 +49,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
     private int pendingMouseY;
     private int pressedGroup = -1;
     private long pressedGroupAt;
+    private String cachedTargetVersion = "";
+    private long nextTargetRefreshAt;
 
     public PVPUtilsViaFabricPlusScreen(Screen parent, String shaderPath) {
         this(parent, shaderPath, null);
@@ -150,7 +152,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
 
         String title = "ViaFabricPlus";
         FontRenderer.drawText(canvas, title, cardX + 28f, cardY + 34f, 22f, (alpha << 24) | 0xFFFFFF);
-        String current = ViaFabricPlusBridge.targetVersionName();
+        String current = currentTargetVersion();
         FontRenderer.drawText(canvas, current.isBlank() ? "Protocol" : "Current: " + current,
                 cardX + cardW - 190f, cardY + 34f, 11f, (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF);
 
@@ -174,13 +176,13 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
             float x = gridX + column * (itemW + gapX);
             float y = gridY + row * (itemH + gapY) - scroll;
             if (y + itemH < gridY || y > gridY + viewH) continue;
-            drawGroup(canvas, i, groups.get(i), images.get(i), x, y, itemW, itemH, alpha, i == selectedGroup,
+            drawGroup(canvas, i, groups.get(i), images.get(i), x, y, itemW, itemH, alpha, current, i == selectedGroup,
                     pendingMouseX >= x && pendingMouseX <= x + itemW && pendingMouseY >= y && pendingMouseY <= y + itemH);
         }
         canvas.restore();
 
         if (selectedGroup >= 0 && selectedGroup < groups.size()) {
-            drawProtocolDetails(canvas, groups.get(selectedGroup), cardX + 22f, detailY,
+            drawProtocolDetails(canvas, groups.get(selectedGroup), current, cardX + 22f, detailY,
                     cardW - 44f, detailH, alpha);
         }
 
@@ -192,7 +194,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
     }
 
     private void drawGroup(Canvas canvas, int index, ViaFabricPlusBridge.ProtocolGroup group, Image image, float x, float y, float w, float h,
-                           int alpha, boolean selected, boolean hovered) {
+                           int alpha, String current, boolean selected, boolean hovered) {
         float hover = index < hoverAnimations.size() ? hoverAnimations.get(index) : 0f;
         float pressed = index == pressedGroup
                 ? Math.max(0f, 1f - (System.currentTimeMillis() - pressedGroupAt) / 180f)
@@ -203,7 +205,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
             bg.setAntiAlias(true);
             bg.setColor(image == null
                     ? ((Math.round(alpha * shade) << 24) | lerpColor(0xFFFFFF, 0x73BDEB, state))
-                    : 0xFF17191D);
+                    : ((alpha << 24) | 0x17191D));
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 16f), bg);
             if (image != null) {
                 canvas.save();
@@ -220,20 +222,19 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
                 }
             }
         }
-        boolean containsCurrent = group.entries().stream().anyMatch(entry -> entry.name().equals(ViaFabricPlusBridge.targetVersionName()));
+        boolean containsCurrent = group.entries().stream().anyMatch(entry -> entry.name().equals(current));
         int titleColor = containsCurrent ? 0x75F28A : 0xFFFFFF;
         String groupLabel = fit(group.name(), w - 18f, 18f);
         float tw = FontRenderer.measureTextWidth(groupLabel, 18f);
         FontRenderer.drawText(canvas, groupLabel, x + (w - tw) * 0.5f, y + 42f, 18f, (alpha << 24) | titleColor);
     }
 
-    private void drawProtocolDetails(Canvas canvas, ViaFabricPlusBridge.ProtocolGroup group, float x, float y, float w, float h, int alpha) {
+    private void drawProtocolDetails(Canvas canvas, ViaFabricPlusBridge.ProtocolGroup group, String current, float x, float y, float w, float h, int alpha) {
         try (Paint panel = new Paint()) {
             panel.setAntiAlias(true);
             panel.setColor((Math.round(alpha * 0.16f) << 24) | 0xFFFFFF);
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 14f), panel);
         }
-        String current = ViaFabricPlusBridge.targetVersionName();
         String detailLabel = fit(group.name() + " versions", w - 28f, 11f);
         FontRenderer.drawText(canvas, detailLabel, x + 14f, y + 20f, 11f,
                 (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF);
@@ -432,6 +433,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
                         && buttonY - 14f <= detailY + detailH - 8f
                         && inside(event.x(), event.y(), buttonX, buttonY - 14f, buttonW, 20f)) {
                     ViaFabricPlusBridge.setTargetVersion(entry);
+                    cachedTargetVersion = entry.name();
+                    nextTargetRefreshAt = System.currentTimeMillis() + 250L;
                     playClick();
                     return true;
                 }
@@ -482,6 +485,15 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
     private float closeProgress() {
         if (!closing || closeStartMs <= 0L) return 0f;
         return Math.max(0f, Math.min(1f, (System.currentTimeMillis() - closeStartMs) / (float) OPEN_MS));
+    }
+
+    private String currentTargetVersion() {
+        long now = System.currentTimeMillis();
+        if (now >= nextTargetRefreshAt) {
+            cachedTargetVersion = ViaFabricPlusBridge.targetVersionName();
+            nextTargetRefreshAt = now + 250L;
+        }
+        return cachedTargetVersion;
     }
 
     private int mainFramebufferId() {
