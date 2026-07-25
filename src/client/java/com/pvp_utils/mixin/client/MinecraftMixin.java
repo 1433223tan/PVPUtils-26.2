@@ -11,6 +11,9 @@ import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
+import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
+import com.pvp_utils.client.render.MainUI.PVPUtilsMultiplayerScreen;
+import com.pvp_utils.client.render.MainUI.PVPUtilsSingleplayerScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -141,6 +144,15 @@ public class MinecraftMixin {
         }
         if (client.screen instanceof NeteaseMusicScreen musicScreen) {
             musicScreen.renderFrameEnd();
+        }
+        if (client.screen instanceof PVPUtilsMainUI mainUI) {
+            mainUI.renderFrameEnd();
+        }
+        if (client.screen instanceof PVPUtilsSingleplayerScreen singleplayerScreen) {
+            singleplayerScreen.renderFrameEnd();
+        }
+        if (client.screen instanceof PVPUtilsMultiplayerScreen multiplayerScreen) {
+            multiplayerScreen.renderFrameEnd();
         }
     }
 

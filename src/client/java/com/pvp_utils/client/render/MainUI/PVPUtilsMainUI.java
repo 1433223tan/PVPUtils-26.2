@@ -1,11 +1,15 @@
 package com.pvp_utils.client.render.MainUI;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
@@ -18,8 +22,6 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
-import net.minecraft.client.gui.screens.multiplayer.SafetyScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -50,10 +52,12 @@ public class PVPUtilsMainUI extends Screen {
     private static final Identifier BACKGROUND_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_custom_background");
 
     private MainUIShader shader;
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final boolean showEntryHint;
     private final String fixedShaderPath;
     private final boolean entryFade;
     private final boolean entryFadeDelay;
+    private boolean returnTransition;
     private final List<MenuButton> buttons = new ArrayList<>();
     private TitleHitBox titleHitBox = new TitleHitBox(0f, 0f, 0f, 0f);
     private Surface textSurface;
@@ -86,6 +90,9 @@ public class PVPUtilsMainUI extends Screen {
     private boolean lightSettingsTheme;
     private long lastRenderMs;
     private long entryFadeStartMs;
+    private boolean pendingGpuUi;
+    private float pendingGpuAlpha = 1f;
+    private long returnTransitionStartMs;
 
     public PVPUtilsMainUI(Screen parent) {
         this(parent, false);
@@ -100,11 +107,20 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private PVPUtilsMainUI(Screen parent, boolean showEntryHint, boolean entryFadeDelay, String fixedShaderPath) {
+        this(parent, showEntryHint, entryFadeDelay, fixedShaderPath, false);
+    }
+
+    private PVPUtilsMainUI(Screen parent, boolean showEntryHint, boolean entryFadeDelay, String fixedShaderPath, boolean returnTransition) {
         super(Component.literal("Minecraft"));
         this.showEntryHint = showEntryHint;
         this.fixedShaderPath = fixedShaderPath;
         this.entryFade = showEntryHint || parent instanceof TitleScreen || entryFadeDelay;
         this.entryFadeDelay = entryFadeDelay;
+        this.returnTransition = returnTransition;
+    }
+
+    static PVPUtilsMainUI returningFromSingleplayer(String shaderPath) {
+        return new PVPUtilsMainUI(null, false, false, shaderPath, true);
     }
 
     @Override
@@ -115,22 +131,23 @@ public class PVPUtilsMainUI extends Screen {
         MainUISharedBackground.setActiveShader(shader.fragmentPath());
         hintStartMs = showEntryHint ? System.currentTimeMillis() : 0L;
         entryFadeStartMs = entryFade ? System.currentTimeMillis() : 0L;
+        returnTransitionStartMs = returnTransition ? System.currentTimeMillis() : 0L;
         invalidateTextTexture();
         refreshThemeFromBackground();
         buttons.clear();
-        buttons.add(new MenuButton("Singleplayer", () -> {
-            if (this.minecraft != null) this.minecraft.setScreen(new SelectWorldScreen(returnParent()));
-        }));
-        buttons.add(new MenuButton("Multiplayer", () -> {
+        buttons.add(new MenuButton("Single player", "\uE7FD", this::startSingleplayerTransition));
+        buttons.add(new MenuButton("Multi player", "\uE7EF", () -> {
             if (this.minecraft == null) return;
-            Screen parent = returnParent();
-            Screen screen = this.minecraft.options.skipMultiplayerWarning ? new JoinMultiplayerScreen(parent) : new SafetyScreen(parent);
-            this.minecraft.setScreen(screen);
+            startMultiplayerTransition();
         }));
-        buttons.add(new MenuButton("Options", () -> {
+        buttons.add(new MenuButton("Alt Manager", "\uE853", () -> {
+        }));
+        buttons.add(new MenuButton("Proxy Manager", "\uE80D", () -> {
+        }));
+        buttons.add(new MenuButton("Options", "\uE8B8", () -> {
             if (this.minecraft != null) this.minecraft.setScreen(new OptionsScreen(returnParent(), this.minecraft.options));
         }));
-        buttons.add(new MenuButton("Exit", () -> {
+        buttons.add(new MenuButton("Shutdown", "\uE8AC", () -> {
             if (this.minecraft != null) this.minecraft.stop();
         }));
         updateButtonPositions();
@@ -144,12 +161,18 @@ public class PVPUtilsMainUI extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         updateSettingsPanel(mouseX, mouseY);
+        if (returnTransition && returnTransitionProgress() >= 1f) {
+            returnTransition = false;
+            returnTransitionStartMs = 0L;
+        }
+        updateSingleplayerTransition();
         renderMainBackground(graphics, mouseX, mouseY);
         float entryAlpha = entryAlpha();
         for (int i = 0; i < buttons.size(); i++) {
             buttons.get(i).render(graphics, mouseX, mouseY, i == pressedIndex, entryAlpha);
         }
-        renderText(graphics, entryAlpha);
+        pendingGpuAlpha = entryAlpha;
+        pendingGpuUi = true;
         renderEntryHint(graphics, entryAlpha);
     }
 
@@ -159,6 +182,9 @@ public class PVPUtilsMainUI extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
+        if (returnTransition || singleplayerTransitioning) {
+            return true;
+        }
         if (isInsideSettings((float) event.x(), (float) event.y())) {
             if (event.button() == 0) {
                 settingsOpen = true;
@@ -284,27 +310,48 @@ public class PVPUtilsMainUI extends Screen {
 
     private void updateButtonPositions() {
         if (buttons.isEmpty()) return;
-        float buttonW = Math.min(this.width / 6f, 300f);
-        float buttonH = 30f;
-        float gap = 10f;
-        float y = this.height - Math.min((this.width + this.height * 2f) / 25f, 150f);
-        float startX = this.width / 2f - (buttonW * 4f + gap * 3f) / 2f;
-        for (int i = 0; i < 4; i++) {
-            buttons.get(i).setBounds(startX + i * (buttonW + gap), y, buttonW, buttonH);
+        float cardW = compactCardWidth();
+        float buttonH = compactButtonHeight();
+        float gap = compactButtonGap();
+        float startX = (this.width - cardW) * 0.5f + 16f;
+        float startY = compactCardY() + 18f;
+        float buttonW = cardW - 32f;
+        for (int i = 0; i < buttons.size(); i++) {
+            buttons.get(i).setBounds(startX, startY + i * (buttonH + gap), buttonW, buttonH);
         }
         float titleSize = titleSize();
-        float titleX = this.width / 15f;
-        float titleY = this.width / 30f;
-        float titleW = FontRenderer.measureTextWidth("Minecraft", titleSize);
+        float titleW = FontRenderer.measureTextWidth("PVPUtils", titleSize);
         float titleH = FontRenderer.getLineHeight(titleSize);
+        float titleX = (this.width - titleW) * 0.5f;
+        float titleY = compactCardY() - titleH - 32f;
         titleHitBox = new TitleHitBox(titleX, titleY, titleW, titleH);
         updateTextRegion();
         invalidateTextTexture();
     }
 
     private float titleSize() {
-        float scale = Math.max(0.5f, Math.min(1.0f, (this.width * 2f + this.height) / 6000f + 0.1f));
-        return 48f * scale;
+        float scale = Math.max(0.74f, Math.min(1.0f, (this.width * 2f + this.height) / 2600f));
+        return 32f * scale;
+    }
+
+    private float compactCardWidth() {
+        return Math.max(210f, Math.min(246f, this.width * 0.36f));
+    }
+
+    private float compactButtonHeight() {
+        return 34f;
+    }
+
+    private float compactButtonGap() {
+        return 2f;
+    }
+
+    private float compactCardHeight() {
+        return 36f + buttons.size() * compactButtonHeight() + Math.max(0, buttons.size() - 1) * compactButtonGap();
+    }
+
+    private float compactCardY() {
+        return this.height * 0.5f - compactCardHeight() * 0.5f + 36f;
     }
 
     private void renderText(GuiGraphics graphics, float alpha) {
@@ -312,6 +359,92 @@ public class PVPUtilsMainUI extends Screen {
         if (textTexture == null) return;
         int color = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f) << 24 | 0xFFFFFF;
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXT_TEXTURE_ID, textX, textY, 0f, 0f, textW, textH, textPixelW, textPixelH, textPixelW, textPixelH, color);
+    }
+
+    public void renderFrameEnd() {
+        if (!pendingGpuUi || this.minecraft == null || this.minecraft.screen != this) {
+            pendingGpuUi = false;
+            return;
+        }
+        renderGpuUi(pendingGpuAlpha);
+        pendingGpuUi = false;
+    }
+
+    private void renderGpuUi(float alpha) {
+        Canvas c = glBackend.begin(mainFramebufferId());
+        if (c == null) return;
+        try {
+            if (pendingGpuAlpha > 0.001f) {
+                renderMainCardBlur(c);
+            }
+            renderCompactMenuCard(c, alpha);
+            float singleT = singleplayerTransitionProgress();
+            float returnT = returnTransitionProgress();
+            float controlsFade;
+            float titleFade;
+            float titleMove;
+            if (returnTransition) {
+                titleFade = easeOutCubic(returnT);
+                controlsFade = easeOutCubic(Math.max(0f, (returnT - 0.48f) / 0.52f));
+                titleMove = (1f - titleFade) * 34f;
+            } else {
+                controlsFade = singleplayerTransitioning ? 1f - easeOutCubic(Math.min(1f, singleT * 1.55f)) : 1f;
+                titleFade = controlsFade;
+                titleMove = easeOutCubic(singleT) * 34f;
+            }
+            int titleAlpha = Math.round(255f * Math.max(0f, Math.min(1f, alpha * titleFade)));
+            FontRenderer.drawText(c, "PVPUtils", titleHitBox.x, titleHitBox.y + titleHitBox.h * 0.82f + titleMove, titleSize(), (titleAlpha << 24) | 0xFFFFFF);
+            if (controlsFade > 0.08f) {
+                renderSettingsPlaceholder(c);
+                renderSettingsPanel(c);
+            }
+            for (MenuButton button : buttons) {
+                button.renderText(c, alpha * controlsFade);
+            }
+            if (controlsFade > 0.08f) {
+                renderVersionText(c);
+            }
+        } finally {
+            glBackend.end();
+        }
+    }
+
+    private void renderMainCardBlur(Canvas canvas) {
+        float progress = returnTransition ? returnTransitionProgress() : singleplayerTransitionProgress();
+        float t = returnTransition
+                ? 1f - easeOutCubic(progress)
+                : easeOutCubic(progress);
+        float cardW = compactCardWidth() + (Math.max(320f, Math.min(500f, this.width * 0.52f)) - compactCardWidth()) * t;
+        float cardH = compactCardHeight() + (Math.max(260f, Math.min(this.height - 154f, this.height * 0.72f)) - compactCardHeight()) * t;
+        float cardY = compactCardY() + (76f - compactCardY()) * t;
+        float angle = (returnTransition || singleplayerTransitioning)
+                ? easeInOutCubic(progress) * (float) Math.PI
+                : 0f;
+        float visibleW = cardW * Math.max(0.065f, Math.abs((float) Math.cos(angle)));
+        float x = (this.width - visibleW) * 0.5f;
+        float strength = Math.max(0.65f, Math.min(1.25f, 0.65f + Math.max(visibleW, cardH) / 520f * 0.25f));
+        SkiaBlurRenderer.getInstance().render(
+                canvas,
+                glBackend.getContext(),
+                Minecraft.getInstance(),
+                mainFramebufferId(),
+                x,
+                cardY,
+                visibleW,
+                cardH,
+                18f,
+                0x12000000,
+                strength
+        );
+    }
+
+    private int mainFramebufferId() {
+        Minecraft client = Minecraft.getInstance();
+        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
+        }
+        return 0;
     }
 
     private void renderMainBackground(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -325,11 +458,13 @@ public class PVPUtilsMainUI extends Screen {
             return;
         }
         if (!isImageBackground()) {
+            ensureShaderReady();
             shader.render(graphics, mouseX, mouseY);
             return;
         }
         ensureBackgroundTexture();
         if (backgroundTexture == null || backgroundTextureW <= 0 || backgroundTextureH <= 0) {
+            ensureShaderReady();
             shader.render(graphics, mouseX, mouseY);
             return;
         }
@@ -519,11 +654,12 @@ public class PVPUtilsMainUI extends Screen {
         c.save();
         c.scale(scale, scale);
         c.translate(-textX, -textY);
-        FontRenderer.drawText(c, "Minecraft", titleHitBox.x, titleHitBox.y + titleHitBox.h * 0.82f, titleSize(), mainTextColor(255));
+        renderCompactMenuCard(c, 1f);
+        FontRenderer.drawText(c, "PVPUtils", titleHitBox.x, titleHitBox.y + titleHitBox.h * 0.82f, titleSize(), 0xFFFFFFFF);
         renderSettingsPlaceholder(c);
         renderSettingsPanel(c);
         for (MenuButton button : buttons) {
-            button.renderText(c);
+            button.renderText(c, 1f);
         }
         renderVersionText(c);
         c.restore();
@@ -557,6 +693,7 @@ public class PVPUtilsMainUI extends Screen {
         destroyTextTexture();
         destroyBackgroundTexture();
         closeVideoBackground();
+        glBackend.destroy();
         lastWindowPixelW = -1;
         lastWindowPixelH = -1;
     }
@@ -565,6 +702,54 @@ public class PVPUtilsMainUI extends Screen {
         if (this.minecraft != null) {
             this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
         }
+    }
+
+    private boolean singleplayerTransitioning;
+    private boolean openingMultiplayer;
+    private long singleplayerTransitionStartMs;
+    private static final long SINGLEPLAYER_TRANSITION_MS = 520L;
+    private static final long RETURN_TRANSITION_MS = 440L;
+
+    private void startSingleplayerTransition() {
+        if (singleplayerTransitioning || returnTransition) return;
+        pressedIndex = -1;
+        titlePressed = false;
+        settingsOpen = false;
+        singleplayerTransitioning = true;
+        singleplayerTransitionStartMs = System.currentTimeMillis();
+        openingMultiplayer = false;
+    }
+
+    private void startMultiplayerTransition() {
+        if (singleplayerTransitioning || returnTransition) return;
+        pressedIndex = -1;
+        titlePressed = false;
+        settingsOpen = false;
+        singleplayerTransitioning = true;
+        singleplayerTransitionStartMs = System.currentTimeMillis();
+        openingMultiplayer = true;
+    }
+
+    private void updateSingleplayerTransition() {
+        if (!singleplayerTransitioning) return;
+        if (System.currentTimeMillis() - singleplayerTransitionStartMs < SINGLEPLAYER_TRANSITION_MS) return;
+        singleplayerTransitioning = false;
+        if (this.minecraft != null) {
+            String path = shader == null ? null : shader.fragmentPath();
+            this.minecraft.setScreen(openingMultiplayer
+                    ? new PVPUtilsMultiplayerScreen(returnParent(), path)
+                    : new PVPUtilsSingleplayerScreen(returnParent(), path));
+        }
+    }
+
+    private float singleplayerTransitionProgress() {
+        if (!singleplayerTransitioning || singleplayerTransitionStartMs <= 0L) return 0f;
+        return Math.max(0f, Math.min(1f, (System.currentTimeMillis() - singleplayerTransitionStartMs) / (float) SINGLEPLAYER_TRANSITION_MS));
+    }
+
+    private float returnTransitionProgress() {
+        if (!returnTransition || returnTransitionStartMs <= 0L) return 0f;
+        return Math.max(0f, Math.min(1f, (System.currentTimeMillis() - returnTransitionStartMs) / (float) RETURN_TRANSITION_MS));
     }
 
     private void refreshShader() {
@@ -606,6 +791,13 @@ public class PVPUtilsMainUI extends Screen {
         MainUISharedBackground.setActiveShader(shader.fragmentPath());
     }
 
+    private void ensureShaderReady() {
+        if (shader != null) return;
+        String sharedShaderPath = initialShaderPath();
+        shader = sharedShaderPath == null ? MainUIShader.random() : MainUIShader.named(sharedShaderPath);
+        MainUISharedBackground.setActiveShader(shader.fragmentPath());
+    }
+
     private void cycleGlslShader() {
         List<String> shaders = MainUIShader.shaderFiles();
         if (shaders.isEmpty()) {
@@ -618,7 +810,7 @@ public class PVPUtilsMainUI extends Screen {
         reloadConfiguredShader();
     }
 
-    private PVPUtilsMainUI returnParent() {
+    PVPUtilsMainUI returnParent() {
         return new PVPUtilsMainUI(null, false, false, shader == null ? null : shader.fragmentPath());
     }
 
@@ -705,10 +897,14 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private void updateTextRegion() {
-        float minX = titleHitBox.x;
-        float minY = titleHitBox.y;
+        float cardX = (this.width - compactCardWidth()) * 0.5f;
+        float cardY = compactCardY();
+        float minX = Math.min(titleHitBox.x, cardX);
+        float minY = Math.min(titleHitBox.y, cardY);
         float maxX = titleHitBox.x + titleHitBox.w;
         float maxY = titleHitBox.y + titleHitBox.h;
+        maxX = Math.max(maxX, cardX + compactCardWidth());
+        maxY = Math.max(maxY, cardY + compactCardHeight());
         float settingsX = getSettingsX();
         float settingsY = getSettingsY();
         float panelW = getSettingsPanelWidth();
@@ -846,6 +1042,54 @@ public class PVPUtilsMainUI extends Screen {
             FontRenderer.drawText(canvas, "DEBUG", versionX, debugY, 11f, 0xFFFFD34D);
         }
         drawVersionText(canvas, versionX, versionY, 11f, 0xE6FFFFFF);
+    }
+
+    private void renderCompactMenuCard(Canvas canvas, float alpha) {
+        int a = Math.round(255f * Math.max(0f, Math.min(1f, alpha)));
+        float t = returnTransition
+                ? 1f - easeOutCubic(returnTransitionProgress())
+                : easeOutCubic(singleplayerTransitionProgress());
+        float baseW = compactCardWidth();
+        float baseH = compactCardHeight();
+        float targetW = Math.max(320f, Math.min(500f, this.width * 0.52f));
+        float targetH = Math.max(260f, Math.min(this.height - 154f, this.height * 0.72f));
+        float cardW = baseW + (targetW - baseW) * t;
+        float cardH = baseH + (targetH - baseH) * t;
+        float cardCx = this.width * 0.5f;
+        float targetY = 76f;
+        float cardY = compactCardY() + (targetY - compactCardY()) * t;
+        float transitionProgress = returnTransition
+                ? returnTransitionProgress()
+                : singleplayerTransitionProgress();
+        float angle = returnTransition
+                ? easeInOutCubic(transitionProgress) * (float) Math.PI
+                : singleplayerTransitioning ? easeInOutCubic(transitionProgress) * (float) Math.PI : 0f;
+        try (Paint bg = new Paint(); Paint stroke = new Paint()) {
+            bg.setAntiAlias(true);
+            bg.setColor((Math.round(a * (0x32 / 255f)) << 24) | 0x101010);
+            drawBookPageCard(canvas, cardCx, cardY, cardW, cardH, angle, bg);
+            stroke.setAntiAlias(true);
+            stroke.setMode(PaintMode.STROKE);
+            stroke.setStrokeWidth(1f);
+            stroke.setColor((Math.round(a * 0.14f) << 24) | 0xFFFFFF);
+            drawBookPageCard(canvas, cardCx, cardY + 0.5f, cardW - 1f, cardH - 1f, angle, stroke);
+        }
+    }
+
+    private void drawBookPageCard(Canvas canvas, float cx, float y, float w, float h, float angle, Paint paint) {
+        float sin = (float) Math.sin(angle);
+        float cos = (float) Math.cos(angle);
+        if (Math.abs(sin) < 0.03f && cos > 0.99f) {
+            canvas.drawRRect(RRect.makeXYWH(cx - w * 0.5f, y, w, h, 18f), paint);
+            return;
+        }
+        float scaleX = Math.copySign(Math.max(0.065f, Math.abs(cos)), cos);
+        canvas.save();
+        canvas.translate(cx, y + h * 0.5f);
+        canvas.skew(sin * 0.10f, 0f);
+        canvas.scale(scaleX, 1f);
+        canvas.drawRRect(RRect.makeXYWH(-w * 0.5f, -h * 0.5f, w, h, 18f), paint);
+        canvas.restore();
     }
 
     private void drawVersionText(Canvas canvas, float x, float y, float size, int baseColor) {
@@ -1060,6 +1304,13 @@ public class PVPUtilsMainUI extends Screen {
         return 1f - t * t * t;
     }
 
+    private float easeInOutCubic(float value) {
+        float t = Math.max(0f, Math.min(1f, value));
+        return t < 0.5f
+                ? 4f * t * t * t
+                : 1f - (float) Math.pow(-2f * t + 2f, 3f) * 0.5f;
+    }
+
     private void destroyTextTexture() {
         if (textSurface != null) {
             textSurface.close();
@@ -1092,6 +1343,7 @@ public class PVPUtilsMainUI extends Screen {
 
     private class MenuButton {
         private final String text;
+        private final String icon;
         private final Runnable action;
         private float x;
         private float y;
@@ -1099,8 +1351,9 @@ public class PVPUtilsMainUI extends Screen {
         private float h;
         private float hover;
 
-        private MenuButton(String text, Runnable action) {
+        private MenuButton(String text, String icon, Runnable action) {
             this.text = text;
+            this.icon = icon;
             this.action = action;
         }
 
@@ -1116,21 +1369,36 @@ public class PVPUtilsMainUI extends Screen {
         }
 
         private void render(GuiGraphics graphics, int mouseX, int mouseY, boolean pressed, float alpha) {
-            hover += ((contains(mouseX, mouseY) ? 1f : 0f) - hover) * 0.2f;
-            int a = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f);
-            int lineColor = withAlpha(lerpColor(0xFFB7B7B7, pressed ? 0xFFAC6120 : 0xFFD77927, hover), a);
-            graphics.fill(Math.round(x + 1f), Math.round(y + 1f), Math.round(x + w + 2f), Math.round(y + 5f), withAlpha(0xA0404040, Math.round(a * 0.63f)));
-            graphics.fill(Math.round(x), Math.round(y), Math.round(x + w), Math.round(y + 4f), lineColor);
+            float oldHover = hover;
+            hover += ((contains(mouseX, mouseY) ? 1f : 0f) - hover) * 0.18f;
+            if (pressed) hover = Math.min(1f, hover + 0.08f);
+            if (Math.abs(oldHover - hover) > 0.002f) {
+                invalidateTextTexture();
+            }
         }
 
-        private void renderText(Canvas canvas) {
-            String first = text.substring(0, 1);
-            String rest = text.length() > 1 ? text.substring(1) : "";
-            float textScale = Math.min((PVPUtilsMainUI.this.width * 2f + PVPUtilsMainUI.this.height) / 5000f + 1.25f, 3f);
-            float size = 10f * textScale;
-            float textY = y + 20f;
-            FontRenderer.drawText(canvas, first, x, textY, size, 0xFFE69E2A);
-            FontRenderer.drawText(canvas, rest, x + FontRenderer.measureTextWidth(first, size), textY, size, mainTextColor(255));
+        private void renderText(Canvas canvas, float alpha) {
+            boolean pressed = buttons.indexOf(this) == pressedIndex;
+            float t = easeOutCubic(hover);
+            int drawAlpha = Math.round(255f * Math.max(0f, Math.min(1f, alpha)));
+            float scale = pressed ? 0.985f : 1f + t * 0.018f;
+            float drawW = w * scale;
+            float drawH = h * scale;
+            float drawX = x + (w - drawW) * 0.5f;
+            float drawY = y + (h - drawH) * 0.5f;
+            try (Paint bg = new Paint()) {
+                bg.setAntiAlias(true);
+                bg.setColor((Math.round(drawAlpha * (0.07f + 0.15f * t) * (pressed ? 1.25f : 1f)) << 24) | 0xFFFFFF);
+                canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, 12f), bg);
+            }
+            float iconSize = 18f;
+            float textSize = 15f;
+            int color = withAlpha(0xFFFFFFFF, drawAlpha);
+            float iconX = drawX + 22f;
+            float centerY = drawY + drawH * 0.5f;
+            float iconH = FontRenderer.getLineHeight(iconSize, FontRenderer.MATERIAL_SYMBOLS);
+            FontRenderer.drawText(canvas, icon, iconX, centerY + iconH * 0.35f, iconSize, color, FontRenderer.MATERIAL_SYMBOLS);
+            FontRenderer.drawText(canvas, text, drawX + 54f + t * 3f, centerY + FontRenderer.getLineHeight(textSize) * 0.36f, textSize, color);
         }
     }
 
