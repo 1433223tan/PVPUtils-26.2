@@ -25,6 +25,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -96,6 +98,7 @@ public class PVPUtilsMainUI extends Screen {
     private long returnTransitionStartMs;
     private PVPUtilsSingleplayerScreen embeddedSingleplayer;
     private PVPUtilsMultiplayerScreen embeddedMultiplayer;
+    private AltManagerScreen embeddedAltManager;
 
     public PVPUtilsMainUI(Screen parent) {
         this(parent, false);
@@ -144,7 +147,7 @@ public class PVPUtilsMainUI extends Screen {
             startMultiplayerTransition();
         }));
         buttons.add(new MenuButton("Alt Manager", "\uE853", () -> {
-            if (this.minecraft != null) this.minecraft.setScreen(new AltManagerScreen(this));
+            startAltManagerTransition();
         }));
         buttons.add(new MenuButton("ViaFabricPlus", "\uE64C", () -> {
         }));
@@ -162,6 +165,7 @@ public class PVPUtilsMainUI extends Screen {
         updateButtonPositions();
         if (embeddedSingleplayer != null) embeddedSingleplayer.resize(this.width, this.height);
         if (embeddedMultiplayer != null) embeddedMultiplayer.resize(this.width, this.height);
+        if (embeddedAltManager != null) embeddedAltManager.resize(this.width, this.height);
     }
 
     @Override
@@ -189,9 +193,28 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     @Override
+    public void tick() {
+        super.tick();
+        if (embeddedAltManager != null) embeddedAltManager.tick();
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (embeddedAltManager != null) return embeddedAltManager.keyPressed(event);
+        return super.keyPressed(event);
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent event) {
+        if (embeddedAltManager != null) return embeddedAltManager.charTyped(event);
+        return super.charTyped(event);
+    }
+
+    @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
         if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseClicked(event, consumed);
         if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseClicked(event, consumed);
+        if (embeddedAltManager != null) return embeddedAltManager.mouseClicked(event, consumed);
         if (returnTransition || singleplayerTransitioning) {
             return true;
         }
@@ -299,6 +322,7 @@ public class PVPUtilsMainUI extends Screen {
     public boolean mouseReleased(MouseButtonEvent event) {
         if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseReleased(event);
         if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseReleased(event);
+        if (embeddedAltManager != null) return embeddedAltManager.mouseReleased(event);
         if (event.button() != 0) return false;
         if (titlePressed) {
             titlePressed = false;
@@ -380,6 +404,10 @@ public class PVPUtilsMainUI extends Screen {
         }
         if (embeddedMultiplayer != null) {
             embeddedMultiplayer.renderFrameEnd();
+            return;
+        }
+        if (embeddedAltManager != null) {
+            embeddedAltManager.renderFrameEnd();
             return;
         }
         if (!pendingGpuUi || this.minecraft == null || this.minecraft.screen != this) {
@@ -709,6 +737,10 @@ public class PVPUtilsMainUI extends Screen {
             embeddedMultiplayer.onClose();
             return;
         }
+        if (embeddedAltManager != null) {
+            embeddedAltManager.onClose();
+            return;
+        }
         if (this.minecraft != null) {
             this.minecraft.setScreen(new TitleScreen());
         }
@@ -741,6 +773,7 @@ public class PVPUtilsMainUI extends Screen {
 
     private boolean singleplayerTransitioning;
     private boolean openingMultiplayer;
+    private boolean openingAltManager;
     private boolean preserveEmbeddedPages;
     private long singleplayerTransitionStartMs;
     private static final long SINGLEPLAYER_TRANSITION_MS = 520L;
@@ -754,6 +787,7 @@ public class PVPUtilsMainUI extends Screen {
         singleplayerTransitioning = true;
         singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = false;
+        openingAltManager = false;
     }
 
     private void startMultiplayerTransition() {
@@ -764,6 +798,18 @@ public class PVPUtilsMainUI extends Screen {
         singleplayerTransitioning = true;
         singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = true;
+        openingAltManager = false;
+    }
+
+    private void startAltManagerTransition() {
+        if (singleplayerTransitioning || returnTransition) return;
+        pressedIndex = -1;
+        titlePressed = false;
+        settingsOpen = false;
+        singleplayerTransitioning = true;
+        singleplayerTransitionStartMs = animationNowNanos();
+        openingMultiplayer = false;
+        openingAltManager = true;
     }
 
     private void updateSingleplayerTransition() {
@@ -772,7 +818,10 @@ public class PVPUtilsMainUI extends Screen {
         singleplayerTransitioning = false;
         if (this.minecraft != null) {
             String path = shader == null ? null : shader.fragmentPath();
-            if (openingMultiplayer) {
+            if (openingAltManager) {
+                embeddedAltManager = new AltManagerScreen(this, path, this::beginEmbeddedReturn);
+                embeddedAltManager.initEmbedded(this.minecraft, this.width, this.height);
+            } else if (openingMultiplayer) {
                 embeddedMultiplayer = new PVPUtilsMultiplayerScreen(this, path, this::beginEmbeddedReturn);
                 embeddedMultiplayer.initEmbedded(this.minecraft, this.width, this.height);
             } else {
@@ -790,6 +839,9 @@ public class PVPUtilsMainUI extends Screen {
         if (embeddedMultiplayer != null) {
             return embeddedMultiplayer.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
         }
+        if (embeddedAltManager != null) {
+            return embeddedAltManager.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
@@ -804,6 +856,11 @@ public class PVPUtilsMainUI extends Screen {
             embeddedMultiplayer.render(graphics, mouseX, mouseY, delta);
             return true;
         }
+        if (embeddedAltManager != null) {
+            renderMainBackground(graphics, mouseX, mouseY);
+            embeddedAltManager.render(graphics, mouseX, mouseY, delta);
+            return true;
+        }
         return false;
     }
 
@@ -813,6 +870,7 @@ public class PVPUtilsMainUI extends Screen {
         returnTransitionStartMs = animationNowNanos();
         singleplayerTransitioning = false;
         openingMultiplayer = false;
+        openingAltManager = false;
         pendingGpuAlpha = 1f;
         pendingGpuUi = true;
     }
@@ -829,6 +887,10 @@ public class PVPUtilsMainUI extends Screen {
         if (embeddedMultiplayer != null) {
             embeddedMultiplayer.removed();
             embeddedMultiplayer = null;
+        }
+        if (embeddedAltManager != null) {
+            embeddedAltManager.removed();
+            embeddedAltManager = null;
         }
     }
 

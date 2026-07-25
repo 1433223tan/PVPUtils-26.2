@@ -14,6 +14,7 @@ import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
 import com.pvp_utils.client.render.MainUI.PVPUtilsMultiplayerScreen;
 import com.pvp_utils.client.render.MainUI.PVPUtilsSingleplayerScreen;
+import com.pvp_utils.client.alt.AltManagerScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -153,6 +154,9 @@ public class MinecraftMixin {
         }
         if (client.screen instanceof PVPUtilsMultiplayerScreen multiplayerScreen) {
             multiplayerScreen.renderFrameEnd();
+        }
+        if (client.screen instanceof AltManagerScreen altManagerScreen) {
+            altManagerScreen.renderFrameEnd();
         }
     }
 

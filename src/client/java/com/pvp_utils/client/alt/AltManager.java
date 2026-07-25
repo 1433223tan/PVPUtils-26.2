@@ -245,7 +245,7 @@ public final class AltManager {
             }
         }
 
-        private boolean microsoft() {
+        boolean microsoft() {
             return "microsoft".equalsIgnoreCase(type);
         }
 

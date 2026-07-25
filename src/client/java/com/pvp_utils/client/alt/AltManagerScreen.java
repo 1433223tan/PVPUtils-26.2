@@ -3,14 +3,15 @@ package com.pvp_utils.client.alt;
 import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.pvp_utils.Config;
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
+import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
@@ -19,213 +20,441 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
 
-import java.awt.Desktop;
-import java.net.URI;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public final class AltManagerScreen extends Screen {
+    private static final long OPEN_MS = 440L;
+    private static final long CLOSE_MS = 440L;
     private final Screen parent;
+    private final String shaderPath;
+    private final Runnable embeddedBack;
     private final SkiaGlBackend glBackend = new SkiaGlBackend();
+    private final List<Float> accountHover = new ArrayList<>();
+    private final List<Float> accountSelection = new ArrayList<>();
+    private final Map<UUID, Image> accountAvatars = new HashMap<>();
+    private final Map<UUID, CompletableFuture<byte[]>> pendingAvatars = new HashMap<>();
+    private Image offlineAvatar;
     private AltManager.Account selected;
+    private AltManager.Account deleteTarget;
     private String input = "";
     private String status = "";
     private String deviceCode = "";
-    private String deviceUrl = "";
+    private String microsoftStatus = "Preparing Microsoft login...";
+    private int microsoftStatusColor = 0xFFFFFFFF;
     private long deviceExpiresAt;
-    private boolean addOpen;
+    private long deviceCodeCopiedAt;
+    private long microsoftSuccessAt;
+    private long statusExpiresAt;
+    private long lastAccountClickMs;
+    private int lastAccountClick = -1;
     private boolean offlineOpen;
     private boolean microsoftWaiting;
+    private boolean deleteConfirmOpen;
+    private boolean closingToMain;
+    private boolean backDispatched;
+    private boolean pendingFrame;
     private int mouseX;
     private int mouseY;
-    private int scroll;
+    private float scroll;
+    private float targetScroll;
+    private long openStartMs;
+    private long closeStartMs;
+    private float offlineDialogProgress;
+    private float microsoftDialogProgress;
+    private float deleteDialogProgress;
 
     public AltManagerScreen(Screen parent) {
+        this(parent, MainUISharedBackground.activeShaderPath(), null);
+    }
+
+    public AltManagerScreen(Screen parent, String shaderPath, Runnable embeddedBack) {
         super(Component.literal("Alt Manager"));
         this.parent = parent;
+        this.shaderPath = shaderPath;
+        this.embeddedBack = embeddedBack;
+        if (shaderPath != null && !shaderPath.isBlank()) {
+            MainUISharedBackground.setActiveShader(shaderPath);
+        }
+    }
+
+    public void initEmbedded(Minecraft client, int width, int height) {
+        init(width, height);
     }
 
     @Override
     protected void init() {
         AltManager.init();
-        scroll = 0;
+        openStartMs = System.currentTimeMillis();
+        closeStartMs = 0L;
+        closingToMain = false;
+        backDispatched = false;
+        offlineOpen = false;
+        microsoftWaiting = false;
+        input = "";
+        status = "";
+        deviceCode = "";
+        microsoftStatus = "Preparing Microsoft login...";
+        microsoftStatusColor = 0xFFFFFFFF;
+        deviceCodeCopiedAt = 0L;
+        microsoftSuccessAt = 0L;
+        statusExpiresAt = 0L;
+        lastAccountClickMs = 0L;
+        lastAccountClick = -1;
+        deleteTarget = null;
+        deleteConfirmOpen = false;
+        offlineDialogProgress = 0f;
+        microsoftDialogProgress = 0f;
+        deleteDialogProgress = 0f;
+        scroll = 0f;
+        targetScroll = 0f;
+        selected = currentAccount();
+        syncAccountHover();
     }
 
     @Override
     public void tick() {
         super.tick();
         if (microsoftWaiting && deviceExpiresAt > 0L && System.currentTimeMillis() >= deviceExpiresAt) {
+            deviceExpiresAt = 0L;
+            microsoftStatus = "Microsoft login expired.";
+            microsoftStatusColor = 0xFFFF7777;
+        }
+        if (microsoftWaiting && microsoftSuccessAt > 0L && System.currentTimeMillis() - microsoftSuccessAt >= 1800L) {
             microsoftWaiting = false;
-            status = text("微软登录已过期", "Microsoft login expired.");
+            microsoftSuccessAt = 0L;
+        }
+        if (!status.isBlank() && statusExpiresAt > 0L && System.currentTimeMillis() >= statusExpiresAt) {
+            status = "";
+            statusExpiresAt = 0L;
         }
     }
 
     @Override
+    public void resize(int width, int height) {
+        super.resize(width, height);
+        clampScroll();
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        if (embeddedBack == null || minecraft.screen == this) {
+            MainUISharedBackground.render(graphics, mouseX, mouseY);
+        }
         this.mouseX = mouseX;
         this.mouseY = mouseY;
-        MainUISharedBackground.render(graphics, mouseX, mouseY);
+        scroll += (targetScroll - scroll) * 0.20f;
+        offlineDialogProgress = animate(offlineDialogProgress, offlineOpen ? 1f : 0f);
+        microsoftDialogProgress = animate(microsoftDialogProgress, microsoftWaiting ? 1f : 0f);
+        deleteDialogProgress = animate(deleteDialogProgress, deleteConfirmOpen ? 1f : 0f);
+        if (!deleteConfirmOpen && deleteDialogProgress < .01f) deleteTarget = null;
+        pendingFrame = true;
+        if (closingToMain && closeProgress() >= 1f && minecraft != null && !backDispatched) {
+            backDispatched = true;
+            if (embeddedBack != null && minecraft.screen != this) {
+                embeddedBack.run();
+            } else {
+                minecraft.setScreen(parent);
+            }
+        }
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    }
+
+    public void renderFrameEnd() {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
+            pendingFrame = false;
+            return;
+        }
         Canvas canvas = glBackend.begin(mainFramebufferId());
         if (canvas == null) return;
         try {
+            if (!closingToMain) {
+                SkiaBlurRenderer.getInstance().render(
+                        canvas,
+                        glBackend.getContext(),
+                        minecraft,
+                        mainFramebufferId(),
+                        cardX(),
+                        cardY(),
+                        cardW(),
+                        cardH(),
+                        20f,
+                        0x12000000,
+                        0.95f
+                );
+            }
             draw(canvas);
         } finally {
             glBackend.end();
+            pendingFrame = false;
         }
     }
 
     private void draw(Canvas canvas) {
-        float cardW = Math.max(360f, Math.min(500f, width * 0.52f));
-        float cardH = Math.max(360f, Math.min(height - 150f, height * 0.72f));
-        float cardX = (width - cardW) * 0.5f;
-        float cardY = 76f;
-
-        SkiaBlurRenderer.getInstance().render(
-                canvas, glBackend.getContext(), Minecraft.getInstance(), mainFramebufferId(),
-                cardX, cardY, cardW, cardH, 18f, 0x12000000, 1.05f
+        float contentAlpha = closingToMain ? 1f - ease(closeProgress()) : ease(openProgress());
+        int alpha = Math.round(255f * contentAlpha);
+        float x = cardX();
+        float y = cardY();
+        float w = cardW();
+        float h = cardH();
+        drawMainCard(canvas, x, y, w, h);
+        String title = "Alt Manager";
+        FontRenderer.drawText(
+                canvas,
+                title,
+                width * .5f - FontRenderer.measureTextWidth(title, 30f) * .5f,
+                50f,
+                30f,
+                (alpha << 24) | 0xFFFFFF
         );
-        drawCard(canvas, cardX, cardY, cardW, cardH);
-        drawTitle(canvas);
-        drawAccountList(canvas, cardX, cardY, cardW, cardH);
-        drawActions(canvas, cardX, cardY, cardW, cardH);
-
-        if (addOpen || microsoftWaiting) {
+        drawAccounts(canvas, x + 16f, y + 16f, w - 32f, h - 82f, alpha);
+        if (!status.isBlank()) {
+            drawCentered(canvas, status, width * .5f, y + h - 40f, 10f, (Math.round(alpha * .62f) << 24) | 0xFFFFFF);
+        }
+        drawCentered(canvas, currentLoginText(), width * .5f, y + h - 20f, 11f,
+                (Math.round(alpha * .82f) << 24) | 0xFFFFFF);
+        float buttonY = y + h + 12f;
+        float buttonW = (w - 32f) / 5f;
+        drawButton(canvas, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f, "Login", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 1), buttonY, buttonW, 32f, "Delete", alpha,
+                selected == null || !selected.isCurrent());
+        drawButton(canvas, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f, "Add", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f, "Offline", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f, "Back", alpha);
+        float modalProgress = Math.max(offlineDialogProgress, Math.max(microsoftDialogProgress, deleteDialogProgress));
+        if (modalProgress > .01f) {
+            int tintAlpha = Math.round(0x26 * ease(modalProgress));
             SkiaBlurRenderer.getInstance().render(
-                    canvas, glBackend.getContext(), Minecraft.getInstance(), mainFramebufferId(),
-                    0f, 0f, width, height, 0f, 0x4A070B12, 0.95f
+                    canvas,
+                    glBackend.getContext(),
+                    minecraft,
+                    mainFramebufferId(),
+                    0f,
+                    0f,
+                    width,
+                    height,
+                    0f,
+                    tintAlpha << 24,
+                    0.45f + 0.50f * ease(modalProgress)
             );
         }
-        if (addOpen) drawAddDialog(canvas);
-        if (microsoftWaiting) drawMicrosoftDialog(canvas);
+        if (offlineDialogProgress > .01f) drawAnimatedDialog(canvas, offlineDialogProgress, () -> drawOfflineDialog(canvas));
+        if (microsoftDialogProgress > .01f) drawAnimatedDialog(canvas, microsoftDialogProgress, () -> drawMicrosoftDialog(canvas));
+        if (deleteDialogProgress > .01f) drawAnimatedDialog(canvas, deleteDialogProgress, () -> drawDeleteDialog(canvas));
     }
 
-    private void drawTitle(Canvas canvas) {
-        String title = "Alt Manager";
-        float size = 30f;
-        FontRenderer.drawText(canvas, title,
-                (width - FontRenderer.measureTextWidth(title, size)) * 0.5f, 38f, size, 0xFFFFFFFF);
-        if (!status.isBlank()) {
-            FontRenderer.drawText(canvas, status,
-                    (width - FontRenderer.measureTextWidth(status, 11f)) * 0.5f, 58f, 11f, 0xFFFFD176);
-        }
-    }
-
-    private void drawCard(Canvas canvas, float x, float y, float w, float h) {
-        try (Paint bg = new Paint(); Paint stroke = new Paint()) {
-            bg.setAntiAlias(true);
-            bg.setColor(0x32101010);
-            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 18f), bg);
+    private void drawMainCard(Canvas canvas, float x, float y, float w, float h) {
+        try (Paint card = new Paint(); Paint stroke = new Paint()) {
+            card.setAntiAlias(true);
+            card.setColor(0x32101010);
+            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 20f), card);
             stroke.setAntiAlias(true);
             stroke.setMode(PaintMode.STROKE);
             stroke.setStrokeWidth(1f);
             stroke.setColor(0x22FFFFFF);
-            canvas.drawRRect(RRect.makeXYWH(x + 0.5f, y + 0.5f, w - 1f, h - 1f, 18f), stroke);
+            canvas.drawRRect(RRect.makeXYWH(x + .5f, y + .5f, w - 1f, h - 1f, 20f), stroke);
         }
     }
 
-    private void drawAccountList(Canvas canvas, float cardX, float cardY, float cardW, float cardH) {
-        float x = cardX + 14f;
-        float y = cardY + 16f;
-        float w = cardW - 28f;
-        float h = cardH - 128f;
+    private void drawAccounts(Canvas canvas, float x, float y, float w, float h, int alpha) {
+        List<AltManager.Account> accounts = AltManager.accounts();
+        syncAccountHover();
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(x, y, w, h));
-        List<AltManager.Account> accounts = AltManager.accounts();
-        float rowY = y - scroll;
-        for (AltManager.Account account : accounts) {
-            drawAccount(canvas, account, x, rowY, w);
-            rowY += 80f;
-        }
         if (accounts.isEmpty()) {
-            String empty = text("暂无账号", "No saved accounts");
-            FontRenderer.drawText(canvas, empty,
-                    x + (w - FontRenderer.measureTextWidth(empty, 13f)) * 0.5f,
-                    y + h * 0.5f, 13f, 0xFFB9C7DB);
+            drawCentered(canvas, "No accounts", x + w * .5f, y + h * .5f, 14f, (Math.round(alpha * .8f) << 24) | 0xFFFFFF);
+        } else {
+            float itemY = y - scroll;
+            for (int i = 0; i < accounts.size(); i++) {
+                drawAccount(canvas, accounts.get(i), i, x, itemY, w, 64f, alpha);
+                itemY += 72f;
+            }
         }
         canvas.restore();
     }
 
-    private void drawAccount(Canvas canvas, AltManager.Account account, float x, float y, float w) {
-        boolean hovered = hit(mouseX, mouseY, x, y, w, 70f);
-        boolean active = account.isCurrent();
-        boolean chosen = selected != null && selected.name().equalsIgnoreCase(account.name());
-        try (Paint bg = new Paint()) {
+    private void drawAccount(Canvas canvas, AltManager.Account account, int index, float x, float y, float w, float h, int alpha) {
+        if (y + h < cardY() + 16f || y > cardY() + cardH() - 66f) return;
+        boolean over = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        float hover = accountHover.get(index);
+        hover += ((over ? 1f : 0f) - hover) * .16f;
+        accountHover.set(index, hover);
+        float curve = hover * hover * (3f - 2f * hover);
+        boolean selectedNow = selected != null && selected.uuid().equals(account.uuid());
+        float selection = accountSelection.get(index);
+        selection += ((selectedNow ? 1f : 0f) - selection) * .16f;
+        accountSelection.set(index, selection);
+        float selectionCurve = selection * selection * (3f - 2f * selection);
+        boolean current = account.isCurrent();
+        try (Paint bg = new Paint(); Paint icon = new Paint()) {
             bg.setAntiAlias(true);
-            bg.setColor(chosen ? 0x443B6686 : hovered ? 0x302A4660 : 0x18FFFFFF);
-            canvas.drawRRect(RRect.makeXYWH(x, y, w, 70f, 14f), bg);
+            float opacity = current
+                    ? .15f + curve * .08f + selectionCurve * .08f
+                    : .06f + curve * .13f + selectionCurve * .18f;
+            int backgroundColor = current
+                    ? lerpRgb(0x8DE8AE, 0xB8F4CB, selectionCurve)
+                    : lerpRgb(0xFFFFFF, 0x86D4FF, selectionCurve);
+            bg.setColor((Math.round(alpha * opacity) << 24) | backgroundColor);
+            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 13f), bg);
+            icon.setAntiAlias(true);
+            icon.setColor((Math.round(alpha * (.10f + .12f * curve)) << 24) | 0xFFFFFF);
+            canvas.drawRRect(RRect.makeXYWH(x + 10f, y + 10f, 44f, 44f, 10f), icon);
         }
-        drawAvatar(canvas, x + 10f, y + 9f, 52f);
-        FontRenderer.drawText(canvas, account.name(), x + 74f, y + 23f, 16f, 0xFFFFFFFF);
-        FontRenderer.drawText(canvas, account.typeName(), x + 74f, y + 44f, 13f, 0xFF6EFF75);
-        FontRenderer.drawText(canvas, active ? "Active account" : "Unknown ban status",
-                x + 74f, y + 62f, 12f, 0xFFB2B2B2);
-    }
-
-    private void drawAvatar(Canvas canvas, float x, float y, float size) {
-        try (Paint bg = new Paint(); Paint skin = new Paint()) {
-            bg.setAntiAlias(true);
-            bg.setColor(0xFF6D4C39);
-            canvas.drawRRect(RRect.makeXYWH(x, y, size, size, 12f), bg);
-            skin.setAntiAlias(true);
-            skin.setColor(0xFFD69C70);
-            canvas.drawRRect(RRect.makeXYWH(x + 8f, y + 12f, size - 16f, size - 18f, 8f), skin);
-            skin.setColor(0xFF38261E);
-            canvas.drawCircle(x + 19f, y + 27f, 4f, skin);
-            canvas.drawCircle(x + 33f, y + 27f, 4f, skin);
+        if (!drawAvatar(canvas, account, x + 10f, y + 10f, 44f, alpha)) {
+            String symbol = account.typeName().equals("Microsoft") ? "\uE853" : "\uE7FD";
+            float symbolSize = 24f;
+            float symbolWidth = FontRenderer.measureTextWidth(symbol, symbolSize, FontRenderer.MATERIAL_SYMBOLS);
+            FontRenderer.drawText(
+                    canvas,
+                    symbol,
+                    x + 32f - symbolWidth * .5f,
+                    y + 39f,
+                    symbolSize,
+                    (Math.round(alpha * .86f) << 24) | 0xFFFFFF,
+                    FontRenderer.MATERIAL_SYMBOLS
+            );
         }
+        FontRenderer.drawText(canvas, account.name(), x + 66f, y + 26f, 15f, (alpha << 24) | 0xFFFFFF);
+        String detail = account.typeName() + (account.isCurrent() ? "  |  Active" : "");
+        FontRenderer.drawText(canvas, detail, x + 66f, y + 46f, 11f, (Math.round(alpha * .72f) << 24) | 0xFFFFFF);
     }
 
-    private void drawActions(Canvas canvas, float cardX, float cardY, float cardW, float cardH) {
-        float gap = 4f;
-        float x = cardX + 14f;
-        float w = cardW - 28f;
-        float half = (w - gap) * 0.5f;
-        float top = cardY + cardH + 14f;
-        drawButton(canvas, x, top, half, 30f, text("登录", "Login"),
-                hit(mouseX, mouseY, x, top, half, 30f), 0xFF67B9EA);
-        drawButton(canvas, x + half + gap, top, half, 30f, text("删除", "Delete"),
-                hit(mouseX, mouseY, x + half + gap, top, half, 30f), 0xFF4E83B0);
-
-        float bottom = top + 36f;
-        float third = (w - gap * 2f) / 3f;
-        drawButton(canvas, x, bottom, third, 30f, text("添加", "Add"),
-                hit(mouseX, mouseY, x, bottom, third, 30f), 0xFF67B9EA);
-        drawButton(canvas, x + third + gap, bottom, third, 30f, text("离线", "Offline"),
-                hit(mouseX, mouseY, x + third + gap, bottom, third, 30f), 0xFF67B9EA);
-        drawButton(canvas, x + (third + gap) * 2f, bottom, third, 30f, text("返回", "Go Back"),
-                hit(mouseX, mouseY, x + (third + gap) * 2f, bottom, third, 30f), 0xFF4E83B0);
+    private void drawOfflineDialog(Canvas canvas) {
+        float w = Math.min(380f, width - 40f);
+        float h = 190f;
+        float x = (width - w) * .5f;
+        float y = (height - h) * .5f;
+        drawDialogCard(canvas, x, y, w, h);
+        drawCentered(canvas, "Add Offline", width * .5f, y + 38f, 18f, 0xFFFFFFFF);
+        FontRenderer.drawText(canvas, "Username", x + 24f, y + 72f, 12f, 0xB8FFFFFF);
+        drawInput(canvas, x + 24f, y + 84f, w - 48f, 34f);
+        float buttonW = (w - 56f) * .5f;
+        drawButton(canvas, x + 24f, y + 136f, buttonW, 30f, "Confirm", 255);
+        drawButton(canvas, x + 32f + buttonW, y + 136f, buttonW, 30f, "Cancel", 255);
     }
 
-    private void drawAddDialog(Canvas canvas) {
-        float x = width * 0.5f - 190f;
-        float y = height * 0.5f - 100f;
-        drawDialog(canvas, x, y, 380f, 210f);
-        String title = text("添加离线账号", "Add Offline");
-        FontRenderer.drawText(canvas, title,
-                width * 0.5f - FontRenderer.measureTextWidth(title, 18f) * 0.5f, y + 34f, 18f, 0xFFFFFFFF);
-        FontRenderer.drawText(canvas, text("输入离线用户名", "Enter offline username"), x + 28f, y + 68f, 13f, 0xFFB9C7DB);
-        drawInput(canvas, x + 28f, y + 80f, 324f, 34f);
-        drawButton(canvas, x + 28f, y + 132f, 154f, 30f, text("确认添加", "Confirm"),
-                hit(mouseX, mouseY, x + 28f, y + 132f, 154f, 30f), 0xFF67B9EA);
-        drawButton(canvas, x + 198f, y + 132f, 154f, 30f, text("返回", "Back"),
-                hit(mouseX, mouseY, x + 198f, y + 132f, 154f, 30f), 0xFF4E83B0);
+    private void drawDeleteDialog(Canvas canvas) {
+        float w = Math.min(380f, width - 40f);
+        float h = 166f;
+        float x = (width - w) * .5f;
+        float y = (height - h) * .5f;
+        drawDialogCard(canvas, x, y, w, h);
+        drawCentered(canvas, "Delete Account", width * .5f, y + 38f, 18f, 0xFFFFFFFF);
+        String accountName = deleteTarget == null ? "this account" : deleteTarget.name();
+        drawCentered(canvas, "Delete " + accountName + "?", width * .5f, y + 82f, 13f, 0xCFFFFFFF);
+        float buttonW = (w - 56f) * .5f;
+        drawButton(canvas, x + 24f, y + 112f, buttonW, 30f, "Delete", 255);
+        drawButton(canvas, x + 32f + buttonW, y + 112f, buttonW, 30f, "Cancel", 255);
     }
 
     private void drawMicrosoftDialog(Canvas canvas) {
-        float x = width * 0.5f - 182f;
-        float y = height * 0.5f - 78f;
-        drawDialog(canvas, x, y, 364f, 156f);
-        String title = text("微软登录", "Microsoft Login");
-        FontRenderer.drawText(canvas, title,
-                width * 0.5f - FontRenderer.measureTextWidth(title, 18f) * 0.5f, y + 34f, 18f, 0xFFFFFFFF);
-        FontRenderer.drawText(canvas, text("请查看浏览器完成登录", "Please check your browser"), x + 78f, y + 72f, 13f, 0xFFFFFFFF);
-        drawSpinner(canvas, x + 38f, y + 66f);
-        if (!deviceCode.isBlank()) {
-            FontRenderer.drawText(canvas, text("设备码：", "Code: ") + deviceCode, x + 28f, y + 100f, 11f, 0xFFB9C7DB);
+        float w = Math.min(380f, width - 40f);
+        float h = 166f;
+        float x = (width - w) * .5f;
+        float y = (height - h) * .5f;
+        drawDialogCard(canvas, x, y, w, h);
+        drawCentered(canvas, "Microsoft Login", width * .5f, y + 38f, 18f, 0xFFFFFFFF);
+        if (microsoftSuccessAt > 0L) {
+            FontRenderer.drawText(canvas, "\uE876", x + 24f, y + 83f, 24f, 0xFF62E58B, FontRenderer.MATERIAL_SYMBOLS);
+        } else {
+            drawSpinner(canvas, x + 38f, y + 76f);
         }
-        drawButton(canvas, x + 238f, y + 112f, 96f, 26f, text("取消", "Cancel"),
-                hit(mouseX, mouseY, x + 238f, y + 112f, 96f, 26f), 0xFF4E83B0);
+        FontRenderer.drawText(canvas, microsoftStatus, x + 66f, y + 80f, 13f, microsoftStatusColor);
+        if (!deviceCode.isBlank()) {
+            FontRenderer.drawText(canvas, "Code: " + deviceCode, x + 24f, y + 112f, 11f, 0xB8FFFFFF);
+        }
+        float buttonW = (w - 56f) * .5f;
+        String copyLabel = System.currentTimeMillis() - deviceCodeCopiedAt < 1500L ? "Copied" : "Copy Code";
+        drawButton(canvas, x + 24f, y + 124f, buttonW, 26f, copyLabel, 255);
+        drawButton(canvas, x + 32f + buttonW, y + 124f, buttonW, 26f, "Cancel", 255);
+    }
+
+    private void drawDialogCard(Canvas canvas, float x, float y, float w, float h) {
+        SkiaBlurRenderer.getInstance().render(
+                canvas,
+                glBackend.getContext(),
+                minecraft,
+                mainFramebufferId(),
+                x,
+                y,
+                w,
+                h,
+                20f,
+                0x12000000,
+                0.95f
+        );
+        drawMainCard(canvas, x, y, w, h);
+    }
+
+    private void drawAnimatedDialog(Canvas canvas, float progress, Runnable renderer) {
+        float eased = ease(progress);
+        float scale = .90f + .10f * eased;
+        canvas.saveLayerAlpha(Rect.makeXYWH(0f, 0f, width, height), Math.round(255f * eased));
+        canvas.translate(width * .5f, height * .5f);
+        canvas.scale(scale, scale);
+        canvas.translate(-width * .5f, -height * .5f);
+        renderer.run();
+        canvas.restore();
+    }
+
+    private void drawInput(Canvas canvas, float x, float y, float w, float h) {
+        boolean over = inside(mouseX, mouseY, x, y, w, h);
+        try (Paint bg = new Paint(); Paint stroke = new Paint()) {
+            bg.setAntiAlias(true);
+            bg.setColor(((over ? 0x18 : 0x0E) << 24) | 0xFFFFFF);
+            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
+            stroke.setAntiAlias(true);
+            stroke.setMode(PaintMode.STROKE);
+            stroke.setStrokeWidth(1f);
+            stroke.setColor(0x22FFFFFF);
+            canvas.drawRRect(RRect.makeXYWH(x + .5f, y + .5f, w - 1f, h - 1f, 10f), stroke);
+        }
+        String shown = input.isBlank() ? "Enter username" : input;
+        int color = input.isBlank() ? 0x8AFFFFFF : 0xFFFFFFFF;
+        FontRenderer.drawText(canvas, shown, x + 12f, y + 22f, 12f, color);
+        if ((System.currentTimeMillis() / 500L) % 2L == 0L) {
+            float cursorX = x + 12f + FontRenderer.measureTextWidth(input, 12f);
+            try (Paint cursor = new Paint()) {
+                cursor.setColor(0xFFFFFFFF);
+                canvas.drawRect(Rect.makeXYWH(cursorX, y + 8f, 1f, h - 16f), cursor);
+            }
+        }
+    }
+
+    private void drawButton(Canvas canvas, float x, float y, float w, float h, String label, int alpha) {
+        drawButton(canvas, x, y, w, h, label, alpha, true);
+    }
+
+    private void drawButton(Canvas canvas, float x, float y, float w, float h, String label, int alpha, boolean enabled) {
+        boolean over = enabled && inside(mouseX, mouseY, x, y, w, h);
+        float hover = over ? 1f : 0f;
+        int color = enabled ? lerpRgb(0x67B9EA, 0xA7E0FF, hover) : 0x7D8790;
+        try (Paint bg = new Paint()) {
+            bg.setAntiAlias(true);
+            bg.setColor((Math.round(alpha * (enabled ? .20f + .12f * hover : .12f)) << 24) | color);
+            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
+        }
+        float fontSize = h <= 28f ? 12f : 13f;
+        FontRenderer.drawText(
+                canvas,
+                label,
+                x + (w - FontRenderer.measureTextWidth(label, fontSize)) * .5f,
+                y + (h <= 28f ? 18f : 21f),
+                fontSize,
+                (Math.round(alpha * (enabled ? 1f : .48f)) << 24) | 0xFFFFFF
+        );
     }
 
     private void drawSpinner(Canvas canvas, float x, float y) {
@@ -233,178 +462,242 @@ public final class AltManagerScreen extends Screen {
             paint.setAntiAlias(true);
             paint.setMode(PaintMode.STROKE);
             paint.setStrokeWidth(3f);
-            paint.setColor(0xFFFFB28B);
-            canvas.drawArc(x - 15f, y - 15f, x + 15f, y + 15f,
-                    (System.currentTimeMillis() % 1200L) / 1200f * 360f, 270f, false, paint);
+            paint.setColor(0xFFA7E0FF);
+            canvas.drawArc(
+                    x - 14f,
+                    y - 14f,
+                    x + 14f,
+                    y + 14f,
+                    (System.currentTimeMillis() % 1200L) / 1200f * 360f,
+                    270f,
+                    false,
+                    paint
+            );
         }
-    }
-
-    private void drawDialog(Canvas canvas, float x, float y, float w, float h) {
-        try (Paint bg = new Paint(); Paint stroke = new Paint()) {
-            bg.setAntiAlias(true);
-            bg.setColor(0xE8192637);
-            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 18f), bg);
-            stroke.setAntiAlias(true);
-            stroke.setMode(PaintMode.STROKE);
-            stroke.setStrokeWidth(1f);
-            stroke.setColor(0x6697BCE4);
-            canvas.drawRRect(RRect.makeXYWH(x + 0.5f, y + 0.5f, w - 1f, h - 1f, 18f), stroke);
-        }
-    }
-
-    private void drawInput(Canvas canvas, float x, float y, float w, float h) {
-        try (Paint bg = new Paint()) {
-            bg.setAntiAlias(true);
-            bg.setColor(hit(mouseX, mouseY, x, y, w, h) ? 0x33486C8D : 0x242A3A4D);
-            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
-        }
-        String value = input.isBlank() ? text("用户名", "Username") : input;
-        FontRenderer.drawText(canvas, value, x + 12f, y + 22f, 12f, input.isBlank() ? 0xFF718097 : 0xFFFFFFFF);
-    }
-
-    private void drawButton(Canvas canvas, float x, float y, float w, float h, String label, boolean hovered, int color) {
-        try (Paint bg = new Paint()) {
-            bg.setAntiAlias(true);
-            bg.setColor(hovered ? brighten(color) : color);
-            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
-        }
-        float size = h <= 28f ? 12f : 13f;
-        FontRenderer.drawText(canvas, label,
-                x + (w - FontRenderer.measureTextWidth(label, size)) * 0.5f,
-                y + h * 0.64f, size, 0xFFFFFFFF);
-    }
-
-    private String text(String chinese, String english) {
-        return Config.isChinese ? chinese : english;
-    }
-
-    private int brighten(int color) {
-        return 0xFF000000
-                | (Math.min(255, ((color >> 16) & 255) + 18) << 16)
-                | (Math.min(255, ((color >> 8) & 255) + 18) << 8)
-                | Math.min(255, (color & 255) + 18);
-    }
-
-    private boolean hit(double mx, double my, float x, float y, float w, float h) {
-        return mx >= x && mx <= x + w && my >= y && my <= y + h;
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        if (event.button() != 0) return true;
+        if (event.button() != 0 || closingToMain) return true;
         float mx = (float) event.x();
         float my = (float) event.y();
-        float cardW = Math.max(360f, Math.min(500f, width * 0.52f));
-        float cardH = Math.max(360f, Math.min(height - 150f, height * 0.72f));
-        float cardX = (width - cardW) * 0.5f;
-        float cardY = 76f;
-        float gap = 4f;
-        float actionX = cardX + 14f;
-        float actionW = cardW - 28f;
-        float half = (actionW - gap) * 0.5f;
-        float top = cardY + cardH + 14f;
-        float bottom = top + 36f;
-        float third = (actionW - gap * 2f) / 3f;
-
+        if (deleteConfirmOpen) {
+            float w = Math.min(380f, width - 40f);
+            float h = 166f;
+            float x = (width - w) * .5f;
+            float y = (height - h) * .5f;
+            float buttonW = (w - 56f) * .5f;
+            if (inside(mx, my, x + 24f, y + 112f, buttonW, 30f)) {
+                playClick();
+                if (deleteTarget != null && !deleteTarget.isCurrent()) {
+                    AltManager.remove(deleteTarget);
+                    selected = currentAccount();
+                    showStatus("Account deleted.");
+                    syncAccountHover();
+                    clampScroll();
+                }
+                deleteConfirmOpen = false;
+                return true;
+            }
+            if (inside(mx, my, x + 32f + buttonW, y + 112f, buttonW, 30f)) {
+                playClick();
+                deleteConfirmOpen = false;
+            }
+            return true;
+        }
         if (microsoftWaiting) {
-            float x = width * 0.5f - 182f;
-            float y = height * 0.5f - 78f;
-            if (hit(mx, my, x + 238f, y + 112f, 96f, 26f)) {
+            float w = Math.min(380f, width - 40f);
+            float h = 166f;
+            float x = (width - w) * .5f;
+            float y = (height - h) * .5f;
+            float buttonW = (w - 56f) * .5f;
+            if (inside(mx, my, x + 24f, y + 124f, buttonW, 26f)) {
+                playClick();
+                if (!deviceCode.isBlank() && minecraft != null) {
+                    minecraft.keyboardHandler.setClipboard(deviceCode);
+                    deviceCodeCopiedAt = System.currentTimeMillis();
+                }
+                return true;
+            }
+            if (inside(mx, my, x + 32f + buttonW, y + 124f, buttonW, 26f)) {
+                playClick();
                 microsoftWaiting = false;
-                status = text("已取消微软登录", "Microsoft login cancelled.");
+                showStatus("Microsoft login cancelled.");
             }
             return true;
         }
-        if (addOpen) return handleAddDialogClick(mx, my);
-        if (hit(mx, my, actionX, top, half, 30f)) {
-            if (selected != null) status = AltManager.login(selected) ? "Logged in as " + selected.name() : "Login failed.";
+        if (offlineOpen) {
+            handleOfflineDialogClick(mx, my);
             return true;
         }
-        if (hit(mx, my, actionX + half + gap, top, half, 30f)) {
+        float x = cardX();
+        float buttonY = cardY() + cardH() + 12f;
+        float buttonW = (cardW() - 32f) / 5f;
+        if (inside(mx, my, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f)) {
+            playClick();
             if (selected != null) {
-                AltManager.remove(selected);
-                selected = null;
-                status = text("账号已删除", "Account deleted.");
+                showStatus(AltManager.login(selected) ? "Logged in as " + selected.name() : "Login failed.");
             }
             return true;
         }
-        if (hit(mx, my, actionX, bottom, third, 30f)) {
+        if (inside(mx, my, bottomButtonX(x, buttonW, 1), buttonY, buttonW, 32f)) {
+            playClick();
+            if (selected != null) {
+                if (selected.isCurrent()) {
+                    showStatus("The current account cannot be deleted.");
+                } else {
+                    deleteTarget = selected;
+                    deleteConfirmOpen = true;
+                }
+            }
+            return true;
+        }
+        if (inside(mx, my, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f)) {
+            playClick();
             startMicrosoftLogin();
             return true;
         }
-        if (hit(mx, my, actionX + third + gap, bottom, third, 30f)) {
-            addOpen = true;
+        if (inside(mx, my, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f)) {
+            playClick();
             offlineOpen = true;
             input = "";
             return true;
         }
-        if (hit(mx, my, actionX + (third + gap) * 2f, bottom, third, 30f)) {
-            onClose();
+        if (inside(mx, my, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f)) {
+            playClick();
+            startClose();
             return true;
         }
-        float rowY = cardY + 16f - scroll;
-        for (AltManager.Account account : AltManager.accounts()) {
-            if (hit(mx, my, cardX + 14f, rowY, actionW, 70f)) {
-                selected = account;
-                return true;
+        int hit = accountAt(mx, my);
+        if (hit >= 0) {
+            long now = System.currentTimeMillis();
+            AltManager.Account account = AltManager.accounts().get(hit);
+            selected = account;
+            if (lastAccountClick == hit && now - lastAccountClickMs <= 350L) {
+                playClick();
+                showStatus(AltManager.login(account) ? "Logged in as " + account.name() : "Login failed.");
+                lastAccountClick = -1;
+                lastAccountClickMs = 0L;
+            } else {
+                lastAccountClick = hit;
+                lastAccountClickMs = now;
             }
-            rowY += 80f;
         }
         return true;
     }
 
-    private boolean handleAddDialogClick(float mx, float my) {
-        float x = width * 0.5f - 190f;
-        float y = height * 0.5f - 100f;
-        if (offlineOpen && hit(mx, my, x + 28f, y + 80f, 324f, 34f)) return true;
-        if (offlineOpen && hit(mx, my, x + 28f, y + 132f, 154f, 30f)) {
+    private void handleOfflineDialogClick(float mx, float my) {
+        float w = Math.min(380f, width - 40f);
+        float h = 190f;
+        float x = (width - w) * .5f;
+        float y = (height - h) * .5f;
+        float buttonW = (w - 56f) * .5f;
+        if (inside(mx, my, x + 24f, y + 136f, buttonW, 30f)) {
+            playClick();
             AltManager.Account account = AltManager.addOffline(input);
-            status = account == null ? text("账号名称无效", "Invalid account name.") : text("账号已添加", "Account added.");
-            selected = account;
-            input = "";
-            addOpen = false;
-            offlineOpen = false;
-            return true;
+            if (account == null) {
+                showStatus("Invalid account name.");
+            } else {
+                selected = account;
+                showStatus("Account added.");
+                offlineOpen = false;
+                input = "";
+                syncAccountHover();
+                clampScroll();
+            }
+            return;
         }
-        if (offlineOpen && hit(mx, my, x + 198f, y + 132f, 154f, 30f)) {
-            addOpen = false;
+        if (inside(mx, my, x + 32f + buttonW, y + 136f, buttonW, 30f)) {
+            playClick();
             offlineOpen = false;
             input = "";
-            return true;
         }
-        return true;
     }
 
     private void startMicrosoftLogin() {
         microsoftWaiting = true;
-        status = text("正在等待微软授权", "Waiting for Microsoft authorization.");
+        showStatus("Waiting for Microsoft authorization.");
+        deviceCode = "";
+        microsoftStatus = "Requesting device code...";
+        microsoftStatusColor = 0xFFFFFFFF;
+        deviceExpiresAt = 0L;
+        deviceCodeCopiedAt = 0L;
+        microsoftSuccessAt = 0L;
         MicrosoftAuth.login(info -> {
             String[] parts = info.split("\\n", 3);
-            deviceCode = parts.length > 0 ? parts[0] : "";
-            deviceUrl = parts.length > 1 ? parts[1] : "";
-            long seconds = parts.length > 2 ? Long.parseLong(parts[2]) : 900L;
-            deviceExpiresAt = System.currentTimeMillis() + seconds * 1000L;
-        }, account -> {
+            String code = parts.length > 0 ? parts[0] : "";
+            long seconds;
+            try {
+                seconds = parts.length > 2 ? Long.parseLong(parts[2]) : 900L;
+            } catch (NumberFormatException ignored) {
+                seconds = 900L;
+            }
+            long expiresAt = System.currentTimeMillis() + seconds * 1000L;
+            deviceCode = code;
+            deviceExpiresAt = expiresAt;
+            if (!code.isBlank() && minecraft != null) {
+                minecraft.keyboardHandler.setClipboard(code);
+                deviceCodeCopiedAt = System.currentTimeMillis();
+            }
+        }, value -> {
+            microsoftStatus = value;
+            microsoftStatusColor = 0xFFFFFFFF;
+        }, account -> Minecraft.getInstance().execute(() -> {
             AltManager.add(account);
             selected = account;
-            microsoftWaiting = false;
-            status = "Microsoft login succeeded: " + account.name();
-        }, error -> {
-            microsoftWaiting = false;
-            status = error;
-        });
+            microsoftStatus = "Microsoft login successful.";
+            microsoftStatusColor = 0xFF62E58B;
+            microsoftSuccessAt = System.currentTimeMillis();
+            showStatus("Microsoft login succeeded: " + account.name());
+            syncAccountHover();
+            clampScroll();
+        }), error -> Minecraft.getInstance().execute(() -> {
+            microsoftStatus = error == null || error.isBlank() ? "Microsoft login failed." : error;
+            microsoftStatusColor = 0xFFFF7777;
+            showStatus(microsoftStatus);
+        }));
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        scroll = Math.max(0, scroll - (int) (verticalAmount * 60f));
+        if (offlineOpen || microsoftWaiting) return true;
+        targetScroll -= (float) verticalAmount * 48f;
+        clampScroll();
         return true;
     }
 
     @Override
     public boolean keyPressed(KeyEvent event) {
-        if (addOpen && offlineOpen && event.key() == 259 && !input.isEmpty()) {
+        if (event.key() == 256) {
+            if (offlineOpen) {
+                offlineOpen = false;
+                input = "";
+            } else if (microsoftWaiting) {
+                microsoftWaiting = false;
+                showStatus("Microsoft login cancelled.");
+            } else if (deleteConfirmOpen) {
+                deleteConfirmOpen = false;
+            } else {
+                startClose();
+            }
+            return true;
+        }
+        if (offlineOpen && event.key() == 259 && !input.isEmpty()) {
             input = input.substring(0, input.length() - 1);
+            return true;
+        }
+        if (offlineOpen && event.key() == 257) {
+            AltManager.Account account = AltManager.addOffline(input);
+            if (account == null) {
+                showStatus("Invalid account name.");
+            } else {
+                selected = account;
+                showStatus("Account added.");
+                offlineOpen = false;
+                input = "";
+                syncAccountHover();
+                clampScroll();
+            }
             return true;
         }
         return true;
@@ -412,28 +705,228 @@ public final class AltManagerScreen extends Screen {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
-        if (addOpen && offlineOpen && event.isAllowedChatCharacter() && input.length() < 16) {
+        if (offlineOpen && event.isAllowedChatCharacter() && input.length() < 16) {
             input += event.codepointAsString();
-            return true;
         }
         return true;
     }
 
-    private void copy(String value) {
-        if (minecraft != null) minecraft.keyboardHandler.setClipboard(value == null ? "" : value);
-    }
-
-    private void open(String value) {
-        try {
-            if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI.create(value));
-        } catch (Exception ignored) {
+    @Override
+    public void onClose() {
+        if (offlineOpen) {
+            offlineOpen = false;
+            input = "";
+            return;
         }
+        if (microsoftWaiting) {
+            microsoftWaiting = false;
+            showStatus("Microsoft login cancelled.");
+            return;
+        }
+        if (deleteConfirmOpen) {
+            deleteConfirmOpen = false;
+            return;
+        }
+        startClose();
     }
 
     @Override
-    public void onClose() {
+    public void removed() {
+        pendingFrame = false;
+        for (Image image : accountAvatars.values()) {
+            if (image != null) image.close();
+        }
+        accountAvatars.clear();
+        pendingAvatars.clear();
+        if (offlineAvatar != null) {
+            offlineAvatar.close();
+            offlineAvatar = null;
+        }
         glBackend.destroy();
-        if (minecraft != null) minecraft.setScreen(parent);
+        super.removed();
+    }
+
+    private void startClose() {
+        if (closingToMain) return;
+        closingToMain = true;
+        closeStartMs = System.currentTimeMillis();
+    }
+
+    private int accountAt(float mx, float my) {
+        float x = cardX() + 16f;
+        float y = cardY() + 16f;
+        float w = cardW() - 32f;
+        float h = cardH() - 82f;
+        if (mx < x || mx > x + w || my < y || my > y + h) return -1;
+        int index = (int) ((my - y + scroll) / 72f);
+        float inside = (my - y + scroll) - index * 72f;
+        return index >= 0 && index < AltManager.accounts().size() && inside <= 64f ? index : -1;
+    }
+
+    private void syncAccountHover() {
+        int size = AltManager.accounts().size();
+        while (accountHover.size() < size) accountHover.add(0f);
+        while (accountHover.size() > size) accountHover.remove(accountHover.size() - 1);
+        while (accountSelection.size() < size) accountSelection.add(0f);
+        while (accountSelection.size() > size) accountSelection.remove(accountSelection.size() - 1);
+    }
+
+    private boolean drawAvatar(Canvas canvas, AltManager.Account account, float x, float y, float size, int alpha) {
+        Image image = avatar(account);
+        if (image == null) {
+            image = offlineAvatar();
+            if (image == null) return false;
+            try (Paint paint = new Paint()) {
+                paint.setAntiAlias(true);
+                paint.setColor((alpha << 24) | 0xFFFFFF);
+                canvas.save();
+                canvas.clipRRect(RRect.makeXYWH(x, y, size, size, 10f), true);
+                canvas.drawImageRect(
+                        image,
+                        Rect.makeXYWH(0f, 0f, image.getWidth(), image.getHeight()),
+                        Rect.makeXYWH(x, y, size, size),
+                        SamplingMode.DEFAULT,
+                        paint,
+                        true
+                );
+                canvas.restore();
+            }
+            return true;
+        }
+        float scaleX = image.getWidth() / 64f;
+        float scaleY = image.getHeight() / 64f;
+        Rect destination = Rect.makeXYWH(x, y, size, size);
+        try (Paint paint = new Paint()) {
+            paint.setAntiAlias(true);
+            paint.setColor((alpha << 24) | 0xFFFFFF);
+            canvas.save();
+            canvas.clipRRect(RRect.makeXYWH(x, y, size, size, 10f), true);
+            canvas.drawImageRect(
+                    image,
+                    Rect.makeXYWH(8f * scaleX, 8f * scaleY, 8f * scaleX, 8f * scaleY),
+                    destination,
+                    SamplingMode.DEFAULT,
+                    paint,
+                    true
+            );
+            canvas.drawImageRect(
+                    image,
+                    Rect.makeXYWH(40f * scaleX, 8f * scaleY, 8f * scaleX, 8f * scaleY),
+                    destination,
+                    SamplingMode.DEFAULT,
+                    paint,
+                    true
+            );
+            canvas.restore();
+        }
+        return true;
+    }
+
+    private Image avatar(AltManager.Account account) {
+        UUID uuid = account.uuid();
+        if (accountAvatars.containsKey(uuid)) return accountAvatars.get(uuid);
+        CompletableFuture<byte[]> pending = pendingAvatars.get(uuid);
+        if (pending == null) {
+            pendingAvatars.put(uuid, AltAvatarLoader.load(account));
+            return null;
+        }
+        if (!pending.isDone()) return null;
+        pendingAvatars.remove(uuid);
+        try {
+            byte[] bytes = pending.join();
+            Image image = bytes == null || bytes.length == 0 ? null : Image.makeFromEncoded(bytes);
+            accountAvatars.put(uuid, image);
+            return image;
+        } catch (RuntimeException ignored) {
+            accountAvatars.put(uuid, null);
+            return null;
+        }
+    }
+
+    private Image offlineAvatar() {
+        if (offlineAvatar != null) return offlineAvatar;
+        try (InputStream stream = AltManagerScreen.class.getResourceAsStream("/assets/pvp_utils/textures/Offline.png")) {
+            if (stream != null) offlineAvatar = Image.makeFromEncoded(stream.readAllBytes());
+        } catch (Exception ignored) {
+            offlineAvatar = null;
+        }
+        return offlineAvatar;
+    }
+
+    private AltManager.Account currentAccount() {
+        for (AltManager.Account account : AltManager.accounts()) {
+            if (account.isCurrent()) return account;
+        }
+        return null;
+    }
+
+    private String currentLoginText() {
+        AltManager.Account account = currentAccount();
+        if (account != null) {
+            return "Logged in as " + account.name() + " (" + account.typeName() + ")";
+        }
+        if (minecraft != null && minecraft.getUser() != null) {
+            String type = minecraft.getUser().getXuid().isPresent() || minecraft.getUser().getClientId().isPresent()
+                    ? "Microsoft"
+                    : "Offline";
+            return "Logged in as " + minecraft.getUser().getName() + " (" + type + ")";
+        }
+        return "No account is currently logged in";
+    }
+
+    private void clampScroll() {
+        float max = Math.max(0f, AltManager.accounts().size() * 72f - (cardH() - 82f));
+        targetScroll = Math.max(0f, Math.min(max, targetScroll));
+        scroll = Math.max(0f, Math.min(max, scroll));
+    }
+
+    private void playClick() {
+        if (minecraft != null) {
+            minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1f));
+        }
+    }
+
+    private void showStatus(String value) {
+        status = value == null ? "" : value;
+        statusExpiresAt = status.isBlank() ? 0L : System.currentTimeMillis() + 2600L;
+    }
+
+    private float animate(float current, float target) {
+        float next = current + (target - current) * .18f;
+        return Math.abs(next - target) < .002f ? target : next;
+    }
+
+    private void drawCentered(Canvas canvas, String text, float centerX, float y, float size, int color) {
+        FontRenderer.drawText(canvas, text, centerX - FontRenderer.measureTextWidth(text, size) * .5f, y, size, color);
+    }
+
+    private boolean inside(double mx, double my, float x, float y, float w, float h) {
+        return mx >= x && mx <= x + w && my >= y && my <= y + h;
+    }
+
+    private float bottomButtonX(float x, float buttonW, int index) {
+        return x + index * (buttonW + 8f);
+    }
+
+    private float openProgress() {
+        return Math.max(0f, Math.min(1f, (System.currentTimeMillis() - openStartMs) / (float) OPEN_MS));
+    }
+
+    private float closeProgress() {
+        if (!closingToMain || closeStartMs <= 0L) return 0f;
+        return Math.max(0f, Math.min(1f, (System.currentTimeMillis() - closeStartMs) / (float) CLOSE_MS));
+    }
+
+    private float ease(float value) {
+        float t = 1f - Math.max(0f, Math.min(1f, value));
+        return 1f - t * t * t;
+    }
+
+    private int lerpRgb(int from, int to, float t) {
+        int r = Math.round(((from >> 16) & 255) + (((to >> 16) & 255) - ((from >> 16) & 255)) * t);
+        int g = Math.round(((from >> 8) & 255) + (((to >> 8) & 255) - ((from >> 8) & 255)) * t);
+        int b = Math.round((from & 255) + ((to & 255) - (from & 255)) * t);
+        return (r << 16) | (g << 8) | b;
     }
 
     private int mainFramebufferId() {
@@ -442,5 +935,21 @@ public final class AltManagerScreen extends Screen {
             return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
         }
         return 0;
+    }
+
+    private float cardW() {
+        return Math.max(320f, Math.min(500f, width * .52f));
+    }
+
+    private float cardH() {
+        return Math.max(280f, Math.min(height - 150f, height * .70f));
+    }
+
+    private float cardX() {
+        return (width - cardW()) * .5f;
+    }
+
+    private float cardY() {
+        return 72f;
     }
 }
