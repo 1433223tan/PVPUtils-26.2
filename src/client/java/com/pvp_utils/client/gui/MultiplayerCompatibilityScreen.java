@@ -74,7 +74,7 @@ public class MultiplayerCompatibilityScreen extends Screen {
     }
 
     private static Component oneClickLabel() {
-        return toggleLabel(Config.isChinese ? "一键害死 MCBI 和 CNTier 无能的反作弊" : "Enable All", allEnabled());
+        return toggleLabel(Config.isChinese ? "一键害死 MCBI 和 CNTier 无能的反作弊" : "Fuck MCBI & CNTier", allEnabled());
     }
 
     private static Component brandLabel() {
@@ -86,7 +86,7 @@ public class MultiplayerCompatibilityScreen extends Screen {
     }
 
     private static Component translationKeyLabel() {
-        return toggleLabel(Config.isChinese ? "阻止告示牌翻译键" : "Sign Translation Keys", Config.modifyTranslationKeys);
+        return toggleLabel(Config.isChinese ? "反检测翻译键" : "Anti Detecting Translation Key", Config.modifyTranslationKeys);
     }
 
     private static Component toggleLabel(String name, boolean enabled) {
