@@ -159,6 +159,10 @@ public class SettingsScreen extends Screen {
                     Config.potionStatusY = 0f;
                     Config.potionStatusScale = 1.0f;
                     Config.hideSignText = false;
+                    Config.multiplayerAdvancedMode = false;
+                    Config.modifyBrand = true;
+                    Config.modifyChannels = true;
+                    Config.modifyTranslationKeys = true;
                     Config.hideEnchantTableBook = false;
                     Config.hideFireOverlay = false;
                     Config.hideHurtShake = false;
