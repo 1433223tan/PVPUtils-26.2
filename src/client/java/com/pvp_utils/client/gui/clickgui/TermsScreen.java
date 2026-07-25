@@ -9,13 +9,11 @@ import net.minecraft.network.chat.Component;
 
 public class TermsScreen extends Screen {
     private final Screen parent;
-    private boolean openedTerms;
-
-    private int restrictedX;
-    private int fullX;
-    private int readX;
+    private boolean openedRules;
+    private int agreeX;
+    private int rulesX;
     private int buttonY;
-    private final int buttonW = 128;
+    private final int buttonW = 156;
     private final int buttonH = 24;
 
     public TermsScreen(Screen parent) {
@@ -25,38 +23,44 @@ public class TermsScreen extends Screen {
 
     @Override
     protected void init() {
-        this.buttonY = this.height - 78;
-        this.restrictedX = this.width / 2 - buttonW - 8;
-        this.fullX = this.width / 2 + 8;
-        this.readX = this.width / 2 - buttonW / 2;
+        this.buttonY = this.height - 72;
+        this.agreeX = this.width / 2 - buttonW - 8;
+        this.rulesX = this.width / 2 + 8;
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         graphics.fill(0, 0, this.width, this.height, 0xE6000000);
-        int x = this.width / 2;
-        int y = 38;
-        graphics.drawCenteredString(this.font, this.title, x, y, 0xFFFFFFFF);
-        y += 34;
-        drawCentered(graphics, "本模组内置了部分争议性功能，虽然他们都只是为了辅助PVP而生，并非作弊功能，", x, y, 0xFFFFFFFF);
-        drawCentered(graphics, "并且也对其进行了平衡性调整，但是部分服务器仍有可能将部分功能视为违规功能并处以封禁处理，", x, y + 14, 0xFFFFFFFF);
-        drawCentered(graphics, "所以您随时可以选择完整版或者受限版本（后续可以在“其他”分页内重新调整，若选择完整版，则您视为同意此协议）", x, y + 28, 0xFFFFFFFF);
-        y += 64;
-        drawCentered(graphics, "This mod includes some controversial features. They are meant to assist PvP rather than function as cheats,", x, y, 0xFFFFFFFF);
-        drawCentered(graphics, "and they have been balanced as much as possible. However, some servers may still treat certain features as violations and punish players.", x, y + 14, 0xFFFFFFFF);
-        drawCentered(graphics, "You can choose the full or restricted version at any time in Misc Settings. Choosing the full version means you agree to this notice.", x, y + 28, 0xFFFFFFFF);
-        if (!openedTerms) {
-            drawCentered(graphics, Config.isChinese ? "请先阅读协议，否则无法打开 ClickGUI。" : "Please read the terms first, or ClickGUI cannot be opened.", x, this.height - 112, 0xFFFFD166);
+        int center = this.width / 2;
+        graphics.drawCenteredString(this.font, this.title, center, 36, 0xFFFFFFFF);
+
+        if (Config.isChinese) {
+            drawCentered(graphics, "本模组包含可能被部分服务器限制的功能，请先阅读规则文件。", center, 82, 0xFFFFFFFF);
+            drawCentered(graphics, "阅读后点击“我同意以上条款”即可打开设置界面。", center, 98, 0xFFFFFFFF);
+        } else {
+            drawCentered(graphics, "This mod includes features that may be restricted by some servers.", center, 82, 0xFFFFFFFF);
+            drawCentered(graphics, "Read the rules file first, then click “I agree to the terms” to continue.", center, 98, 0xFFFFFFFF);
         }
-        drawButton(graphics, restrictedX, buttonY, buttonW, buttonH, mouseX, mouseY, 0xFFD64040, Config.isChinese ? "受限版本" : "Restricted", !openedTerms);
-        drawButton(graphics, fullX, buttonY, buttonW, buttonH, mouseX, mouseY, 0xFF3DBB58, Config.isChinese ? "完整版本" : "Full", !openedTerms);
-        drawButton(graphics, readX, buttonY + 34, buttonW, buttonH, mouseX, mouseY, 0xFF3A3A3A, Config.isChinese ? "阅读协议" : "Read Terms", false);
+
+        if (!openedRules) {
+            drawCentered(graphics,
+                    Config.isChinese ? "请先打开并阅读规则文件。" : "Open and read the rules file first.",
+                    center, this.height - 106, 0xFFFFD166);
+        }
+
+        drawButton(graphics, agreeX, buttonY, buttonW, buttonH, mouseX, mouseY,
+                0xFF3DBB58, Config.isChinese ? "我同意以上条款" : "I Agree to the Terms", !openedRules);
+        drawButton(graphics, rulesX, buttonY, buttonW, buttonH, mouseX, mouseY,
+                0xFF3A3A3A, Config.isChinese ? "打开规则文件" : "Open Rules File", false);
     }
 
-    private void drawButton(GuiGraphics graphics, int x, int y, int w, int h, int mouseX, int mouseY, int color, String text, boolean disabled) {
+    private void drawButton(GuiGraphics graphics, int x, int y, int w, int h,
+                            int mouseX, int mouseY, int color, String text, boolean disabled) {
         boolean hover = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
         int fill = disabled ? 0xFF4A4A4A : color;
-        if (hover && !disabled) fill = brighten(fill);
+        if (hover && !disabled) {
+            fill = brighten(fill);
+        }
         graphics.fill(x, y, x + w, y + h, fill);
         graphics.drawCenteredString(this.font, text, x + w / 2, y + 7, 0xFFFFFFFF);
     }
@@ -75,36 +79,34 @@ public class TermsScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        double mouseX = event.x();
-        double mouseY = event.y();
-        int button = event.button();
-        if (button != 0) return super.mouseClicked(event, consumed);
-        if (hit(restrictedX, buttonY, buttonW, buttonH, mouseX, mouseY)) {
-            if (!openedTerms) return true;
-            Config.termsRead = true;
-            Config.fullMode = false;
-            Config.save();
-            if (this.minecraft != null) this.minecraft.setScreen(new NewSettingsScreen(parent));
-            return true;
+        if (event.button() != 0) {
+            return super.mouseClicked(event, consumed);
         }
-        if (hit(fullX, buttonY, buttonW, buttonH, mouseX, mouseY)) {
-            if (!openedTerms) return true;
-            Config.termsRead = true;
-            Config.fullMode = true;
-            Config.save();
-            if (this.minecraft != null) this.minecraft.setScreen(new NewSettingsScreen(parent));
-            return true;
-        }
-        if (hit(readX, buttonY + 34, buttonW, buttonH, mouseX, mouseY)) {
-            openedTerms = true;
+
+        if (hit(rulesX, buttonY, buttonW, buttonH, event.x(), event.y())) {
+            openedRules = true;
             TermsManager.open();
             return true;
         }
+
+        if (hit(agreeX, buttonY, buttonW, buttonH, event.x(), event.y())) {
+            if (!openedRules) {
+                return true;
+            }
+            Config.termsRead = true;
+            Config.fullMode = false;
+            Config.save();
+            if (this.minecraft != null) {
+                this.minecraft.setScreen(new NewSettingsScreen(parent));
+            }
+            return true;
+        }
+
         return super.mouseClicked(event, consumed);
     }
 
-    private boolean hit(int x, int y, int w, int h, double mx, double my) {
-        return mx >= x && mx <= x + w && my >= y && my <= y + h;
+    private boolean hit(int x, int y, int w, int h, double mouseX, double mouseY) {
+        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
     }
 
     @Override

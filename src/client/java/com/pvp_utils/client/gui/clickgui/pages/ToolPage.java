@@ -35,6 +35,7 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
                 new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); })));
 
+        if (Config.restrictedFeaturesUnlocked()) {
         modules.add(new SettingModule(UiText.t("火焰弹落点预测", "Fireball Landing Prediction"), UiText.t("显示大型火焰弹的轨迹和预测落点", "Show the trajectory and predicted impact point of large fireballs"),
                 new SettingToggle(() -> Config.fireballLandingPredict, v -> { Config.fireballLandingPredict = v; Config.save(); })));
 
@@ -54,6 +55,8 @@ public class ToolPage extends BasePage {
                         new SettingToggle(() -> Config.projectileTrajectoryPredictEntityMovement, v -> { Config.projectileTrajectoryPredictEntityMovement = v; Config.save(); }))
                 .addSub(UiText.t("其他玩家箭矢预警", "Other Player Arrow Warning"), UiText.t("仅显示预测会命中自己的其他玩家箭矢", "Only show other player arrows predicted to hit you"),
                         new SettingToggle(() -> Config.projectileTrajectoryPredictOtherPlayers, v -> { Config.projectileTrajectoryPredictOtherPlayers = v; Config.save(); })));
+
+        }
 
         modules.add(new SettingModule(UiText.t("自动疾跑", "Auto Sprint"), UiText.t("前进时自动进入疾跑状态", "Automatically sprint while moving forward"),
                 new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));
@@ -121,12 +124,15 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("去除容器半透明背景", "Remove Container Background"), UiText.t("去除背包和容器界面的半透明背景", "Remove the translucent background from inventory and container screens"),
                 new SettingToggle(() -> Config.removeContainerBackground, v -> { Config.removeContainerBackground = v; Config.save(); })));
 
+        if (Config.restrictedFeaturesUnlocked()) {
         modules.add(new SettingModule(UiText.t("钓鱼竿辅助", "Fishing Rod Assist"), UiText.t("切换到钓鱼竿时自动右键使用", "Automatically right-click when switching to a fishing rod"),
                 new SettingToggle(() -> Config.fishingRodAssist, v -> { Config.fishingRodAssist = v; Config.save(); }))
                 .addSub(UiText.t("使用间隔(tick)", "Use Delay (tick)"), UiText.t("切换到钓鱼竿格子后等待多久再使用", "Ticks to wait after switching to a fishing rod slot before using it"),
                         new SettingSlider(0, 20, "%.0f", () -> (double) Config.fishingRodAssistUseDelay,
                                 v -> { Config.fishingRodAssistUseDelay = v.intValue(); Config.save(); }))
                 .visibleWhen(() -> Config.fullMode));
+
+        }
 
         modules.add(new SettingModule(UiText.t("方块数量显示", "Block Count Display"), UiText.t("右键放置方块时显示方块数量、放置速度和点击速度", "Show block count, placement speed, and click speed while right-clicking blocks"),
                 new SettingToggle(() -> Config.blockCountDisplay, v -> {
@@ -231,7 +237,8 @@ public class ToolPage extends BasePage {
                 .addSub(UiText.t("关闭容器延迟", "Close Container Delay"), UiText.t("存入物品后关闭容器所等待的时间(tick)", "Ticks to wait after depositing the item before closing the container"),
                         new SettingSlider(0, 40, "%.0f", () -> (double) Config.autoChestDepositCloseDelay,
                                 v -> { Config.autoChestDepositCloseDelay = v.intValue(); Config.save(); }))
-                .visibleWhen(() -> Config.fullMode));
+                 .visibleWhen(() -> Config.fullMode));
+
     }
 
     @Override public String getTitle() { return UiText.t("工具设置", "Tool Settings"); }

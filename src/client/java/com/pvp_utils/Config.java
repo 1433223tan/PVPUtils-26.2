@@ -17,6 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class Config {
+    private static final boolean PROFILE_GATE = false;
+
     public static boolean autoMode = false;
     public static boolean swordBlock = false;
     public static boolean useSwing = false;
@@ -446,6 +448,7 @@ public class Config {
             if (Files.exists(HUD_CONFIG_FILE)) {
                 loadHudConfig(HUD_CONFIG_FILE);
             }
+            enforceRestrictedProfile();
             save();
             return;
         }
@@ -454,7 +457,27 @@ public class Config {
             loadHudConfig(HUD_CONFIG_FILE);
         }
         normalizeDynamicIslandBlockCountState();
+        enforceRestrictedProfile();
         save();
+    }
+
+    public static boolean restrictedFeaturesUnlocked() {
+        return PROFILE_GATE;
+    }
+
+    private static void enforceRestrictedProfile() {
+        if (restrictedFeaturesUnlocked()) {
+            return;
+        }
+        fullMode = false;
+        mainHandAssist = false;
+        mainHandAssistMeleeWeapon = false;
+        mainHandAssistShield = false;
+        mainHandAssistQuickUse = false;
+        elytraAssist = false;
+        fireballLandingPredict = false;
+        projectileTrajectoryPredict = false;
+        fishingRodAssist = false;
     }
 
     public static void save() {

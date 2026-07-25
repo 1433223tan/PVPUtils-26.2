@@ -12,6 +12,7 @@ import java.util.List;
 public class CombatPage extends BasePage {
 
     public CombatPage() {
+        if (Config.restrictedFeaturesUnlocked()) {
         modules.add(new SettingModule(UiText.t("主手辅助", "AutoMainHand"), UiText.t("在合适的时候自动切换主手手持的物品", "Automatically switch the main-hand item at suitable moments"),
                 new SettingToggle(() -> Config.mainHandAssist, v -> { Config.mainHandAssist = v; Config.save(); }))
                 .addSub(UiText.t("近战武器辅助", "Melee Weapon Assist"), UiText.t("在手持武器时，长按右键可自动切换至物品栏内的血量回复道具", "When holding a weapon, hold right click to switch to a hotbar healing item"),
@@ -33,6 +34,8 @@ public class CombatPage extends BasePage {
                 .addSub(UiText.t("自动烟花推进", "Auto Firework Boost"), UiText.t("手持烟花且没有烟花动能时自动使用", "Automatically use held fireworks when no boost is active"),
                         new SettingToggle(() -> Config.elytraAutoFirework, v -> { Config.elytraAutoFirework = v; Config.save(); }))
                 .visibleWhen(() -> Config.fullMode));
+
+        }
 
         modules.add(new SettingModule(UiText.t("命中标记", "Hit Marker"), UiText.t("在命中时显示标记", "Show a marker when you hit a target"),
                 new SettingToggle(() -> Config.hitMarker, v -> { Config.hitMarker = v; Config.save(); })));

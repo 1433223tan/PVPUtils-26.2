@@ -255,9 +255,14 @@ final class WebGUIModules {
             return "{\"success\":false,\"reason\":\"Unknown category\"}";
         }
         StringBuilder json = new StringBuilder("{\"success\":true,\"result\":[");
+        boolean first = true;
         for (int i = 0; i < category.modules.size(); i++) {
-            if (i > 0) json.append(',');
             Module module = category.modules.get(i);
+            if (isRestrictedModule(module)) {
+                continue;
+            }
+            if (!first) json.append(',');
+            first = false;
             json.append('{')
                     .append("\"id\":\"").append(escape(module.id)).append("\",")
                     .append("\"name\":\"").append(escape(module.name())).append("\",")
@@ -490,10 +495,21 @@ final class WebGUIModules {
     private static Module findModule(String id) {
         for (Category category : CATEGORIES) {
             for (Module module : category.modules) {
-                if (module.id.equals(id)) return module;
+                if (module.id.equals(id) && !isRestrictedModule(module)) return module;
             }
         }
         return null;
+    }
+
+    private static boolean isRestrictedModule(Module module) {
+        if (Config.restrictedFeaturesUnlocked() || module.toggleField == null) {
+            return false;
+        }
+        return switch (module.toggleField) {
+            case "mainHandAssist", "elytraAssist", "fireballLandingPredict",
+                 "projectileTrajectoryPredict", "fishingRodAssist" -> true;
+            default -> false;
+        };
     }
 
     private static Module module(String en, String zh, String enDesc, String zhDesc, String toggleField, Setting... settings) {
