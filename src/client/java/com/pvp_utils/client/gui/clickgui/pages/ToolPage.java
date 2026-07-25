@@ -69,6 +69,8 @@ public class ToolPage extends BasePage {
                 .addSub("Nickname", UiText.t("用于替换真实用户名的显示名称", "Display name used to replace your real username"),
                         new SettingTextBox(() -> Config.nickHiderNickname,
                                 v -> { Config.nickHiderNickname = NickHiderManager.normalizeNickname(v); Config.save(); }, 32))
+                .addSub(UiText.t("IRC 名称", "IRC Name"), UiText.t("开启后在游戏内优先使用当前IRC名称，对同客户端隐藏自己的真实ID", "After enabling, use the current IRC name in-game and hide your real ID from users of the same client"),
+                        new SettingToggle(() -> Config.nickHiderIrc, v -> { Config.nickHiderIrc = v; Config.save(); }))
                 .addSub(UiText.t("聊天栏", "Chat"), UiText.t("替换聊天消息中的自己用户名", "Replace your username in chat messages"),
                         new SettingToggle(() -> Config.nickHiderChat, v -> { Config.nickHiderChat = v; Config.save(); }))
                 .addSub(UiText.t("Tab栏", "Tab List"), UiText.t("替换玩家列表中的自己用户名", "Replace your username in the player list"),

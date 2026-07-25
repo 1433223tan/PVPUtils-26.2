@@ -64,6 +64,7 @@ public class Config {
     public static boolean autoSprint = false;
     public static boolean noSwimming = false;
     public static boolean nickHider = false;
+    public static boolean nickHiderIrc = false;
     public static boolean nickHiderChat = true;
     public static boolean nickHiderTab = true;
     public static boolean nickHiderNametag = true;
@@ -72,6 +73,7 @@ public class Config {
     public static boolean blockCountDisplay = false;
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean dynamicIsland = false;
+    public static DynamicIslandNameMode dynamicIslandNameMode = DynamicIslandNameMode.IRC;
     public static boolean dynamicIslandBlockCount = false;
     public static boolean dynamicIslandBlockCountRestoresBlockCount = false;
     public static boolean dynamicIslandBlockCountAltIcon = false;
@@ -314,6 +316,7 @@ public class Config {
     public enum FreelookTriggerMode { HOLD, TOGGLE }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
+    public enum DynamicIslandNameMode { IRC, ACCOUNT }
 
     public static void setMotionCamera(boolean value) {
         motionCamera = value;

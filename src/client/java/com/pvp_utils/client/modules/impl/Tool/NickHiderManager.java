@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.irc.user.IrcUserManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
@@ -57,7 +58,7 @@ public final class NickHiderManager {
             return null;
         }
         String realName = realName();
-        String nickname = normalizeNickname(Config.nickHiderNickname);
+        String nickname = replacementName();
         if (realName.isBlank() || nickname.isBlank() || realName.equals(nickname)) {
             return component;
         }
@@ -73,6 +74,16 @@ public final class NickHiderManager {
             return Optional.empty();
         }, Style.EMPTY);
         return changed[0] ? replaced : component;
+    }
+
+    private static String replacementName() {
+        if (Config.nickHiderIrc) {
+            var profile = IrcUserManager.currentUser();
+            if (profile != null && profile.username() != null && !profile.username().isBlank()) {
+                return normalizeNickname(profile.username());
+            }
+        }
+        return normalizeNickname(Config.nickHiderNickname);
     }
 
     private static String replaceName(String text, String realName, String nickname) {

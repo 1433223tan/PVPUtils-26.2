@@ -223,9 +223,22 @@ public class DynamicIslandRenderer {
     }
 
     private String getCompactIslandUsername(Minecraft client) {
+        if (Config.dynamicIslandNameMode == Config.DynamicIslandNameMode.ACCOUNT) {
+            return getAccountDisplayName(client);
+        }
         String ircUsername = getCurrentIrcUsername();
         if (!ircUsername.isBlank()) {
             return ircUsername;
+        }
+        if (client.getUser() != null && client.getUser().getName() != null && !client.getUser().getName().isBlank()) {
+            return client.getUser().getName();
+        }
+        return client.player != null ? client.player.getScoreboardName() : "Unknown";
+    }
+
+    private String getAccountDisplayName(Minecraft client) {
+        if (Config.nickHider && Config.nickHiderTab && Config.nickHiderNickname != null && !Config.nickHiderNickname.isBlank()) {
+            return Config.nickHiderNickname;
         }
         if (client.getUser() != null && client.getUser().getName() != null && !client.getUser().getName().isBlank()) {
             return client.getUser().getName();
@@ -376,7 +389,15 @@ public class DynamicIslandRenderer {
 
     private String tabKey(List<PlayerInfo> players, boolean tabOpen) {
         if (!tabOpen) return "compact";
-        StringBuilder key = new StringBuilder("tab:");
+        StringBuilder key = new StringBuilder("tab:")
+                .append(Config.dynamicIslandNameMode)
+                .append('|')
+                .append(Config.nickHider)
+                .append('|')
+                .append(Config.nickHiderTab)
+                .append('|')
+                .append(Config.nickHiderNickname)
+                .append(':');
         for (int i = 0; i < Math.min(players.size(), 80); i++) {
             PlayerInfo player = players.get(i);
             key.append(player.getProfile().id())
@@ -709,8 +730,7 @@ public class DynamicIslandRenderer {
             maxWidth -= titleW;
         }
 
-        String username = ircUsername(player);
-        String name = username.isBlank() ? stripIrcPrefix(fallbackName) : username;
+        String name = displayedTabName(player, fallbackName);
         FontRenderer.drawText(canvas, trimToWidth(name, Math.max(0f, maxWidth), TAB_NAME_SIZE), x, y, TAB_NAME_SIZE, withAlpha(TAB_SELF_NAME_COLOR, alpha));
     }
 
@@ -719,13 +739,35 @@ public class DynamicIslandRenderer {
             return name;
         }
         String title = ircTitle(player);
-        String username = ircUsername(player);
         StringBuilder decorated = new StringBuilder("[P]  ");
         if (!title.isBlank()) {
             decorated.append("[").append(title).append("]  ");
         }
-        decorated.append(username.isBlank() ? name.getKey() : username);
+        decorated.append(displayedTabName(player, name.getKey()));
         return Map.entry(decorated.toString(), name.getValue());
+    }
+
+    private String displayedTabName(PlayerInfo player, String fallbackName) {
+        if (Config.dynamicIslandNameMode == Config.DynamicIslandNameMode.ACCOUNT) {
+            if (isLocalPlayer(player) && Config.nickHider && Config.nickHiderTab
+                    && Config.nickHiderNickname != null && !Config.nickHiderNickname.isBlank()) {
+                return Config.nickHiderNickname;
+            }
+            return player.getProfile().name();
+        }
+        String username = ircUsername(player);
+        return !username.isBlank() && ircNameVisible(player) ? username : stripIrcPrefix(fallbackName);
+    }
+
+    private boolean ircNameVisible(PlayerInfo player) {
+        try {
+            Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
+            Method method = service.getMethod("ircNameVisible", java.util.UUID.class, String.class);
+            Object value = method.invoke(null, player.getProfile().id(), player.getProfile().name());
+            return Boolean.TRUE.equals(value);
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
     }
 
     private boolean ircHasProfile(PlayerInfo player) {

@@ -52,6 +52,7 @@ public class ResetManager {
         Config.autoSprint = false;
         Config.noSwimming = false;
         Config.nickHider = false;
+        Config.nickHiderIrc = false;
         Config.nickHiderChat = true;
         Config.nickHiderTab = true;
         Config.nickHiderNametag = true;
@@ -76,6 +77,7 @@ public class ResetManager {
         Config.blockCountDisplay = false;
         Config.blockCountDisplayMode = Config.BlockCountDisplayMode.NEW;
         Config.dynamicIsland = false;
+        Config.dynamicIslandNameMode = Config.DynamicIslandNameMode.IRC;
         Config.dynamicIslandBlockCount = false;
         Config.dynamicIslandBlockCountRestoresBlockCount = false;
         Config.dynamicIslandBlockCountAltIcon = false;
