@@ -103,6 +103,10 @@ public class Config {
     public static boolean keystrokes = false;
     public static boolean disableImeInGame = false;
     public static boolean hideSignText = false;
+    public static boolean multiplayerAdvancedMode = false;
+    public static boolean modifyBrand = true;
+    public static boolean modifyChannels = true;
+    public static boolean modifyTranslationKeys = true;
     public static boolean hideEnchantTableBook = false;
     public static boolean hideFireOverlay = false;
     public static boolean hideHurtShake = false;

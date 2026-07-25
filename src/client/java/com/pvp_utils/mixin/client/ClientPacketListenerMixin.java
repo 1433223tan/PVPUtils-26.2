@@ -110,7 +110,7 @@ public class ClientPacketListenerMixin {
     @Inject(method = "handleOpenSignEditor", at = @At("HEAD"))
     private void pvp_utils$trackSignTranslations(ClientboundOpenSignEditorPacket packet, CallbackInfo ci) {
         Minecraft client = Minecraft.getInstance();
-        if (client.level != null && client.level.getBlockEntity(packet.getPos()) instanceof SignBlockEntity sign) {
+        if (Config.modifyTranslationKeys && client.level != null && client.level.getBlockEntity(packet.getPos()) instanceof SignBlockEntity sign) {
             ServerTranslationContents.trackSignText(packet.getPos(), packet.isFrontText(), sign.getText(packet.isFrontText()));
         }
     }
