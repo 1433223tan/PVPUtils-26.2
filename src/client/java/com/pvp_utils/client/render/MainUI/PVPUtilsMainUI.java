@@ -7,6 +7,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.alt.AltManagerScreen;
+import com.pvp_utils.client.via.ViaFabricPlusBridge;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
@@ -99,6 +100,7 @@ public class PVPUtilsMainUI extends Screen {
     private PVPUtilsSingleplayerScreen embeddedSingleplayer;
     private PVPUtilsMultiplayerScreen embeddedMultiplayer;
     private AltManagerScreen embeddedAltManager;
+    private PVPUtilsViaFabricPlusScreen embeddedViaFabricPlus;
 
     public PVPUtilsMainUI(Screen parent) {
         this(parent, false);
@@ -149,8 +151,16 @@ public class PVPUtilsMainUI extends Screen {
         buttons.add(new MenuButton("Alt Manager", "\uE853", () -> {
             startAltManagerTransition();
         }));
-        buttons.add(new MenuButton("ViaFabricPlus", "\uE64C", () -> {
-        }));
+        if (ViaFabricPlusBridge.isInstalled()) {
+            buttons.add(new MenuButton("ViaFabricPlus", "\uE64C", this::startViaFabricPlusTransition));
+        }
+        if (ViaFabricPlusBridge.isModMenuInstalled()) {
+            buttons.add(new MenuButton("Mod Menu", "\uE241", () -> {
+                if (this.minecraft != null) {
+                    ViaFabricPlusBridge.openModMenu(returnParent());
+                }
+            }));
+        }
         buttons.add(new MenuButton("Options", "\uE8B8", () -> {
             if (this.minecraft != null) this.minecraft.setScreen(new OptionsScreen(returnParent(), this.minecraft.options));
         }));
@@ -166,6 +176,7 @@ public class PVPUtilsMainUI extends Screen {
         if (embeddedSingleplayer != null) embeddedSingleplayer.resize(this.width, this.height);
         if (embeddedMultiplayer != null) embeddedMultiplayer.resize(this.width, this.height);
         if (embeddedAltManager != null) embeddedAltManager.resize(this.width, this.height);
+        if (embeddedViaFabricPlus != null) embeddedViaFabricPlus.resize(this.width, this.height);
     }
 
     @Override
@@ -177,6 +188,7 @@ public class PVPUtilsMainUI extends Screen {
             returnTransitionStartMs = 0L;
         }
         updateSingleplayerTransition();
+        updateButtonPositions();
         if (renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
         renderMainBackground(graphics, mouseX, mouseY);
         float entryAlpha = entryAlpha();
@@ -202,12 +214,14 @@ public class PVPUtilsMainUI extends Screen {
     @Override
     public boolean keyPressed(KeyEvent event) {
         if (embeddedAltManager != null) return embeddedAltManager.keyPressed(event);
+        if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.keyPressed(event);
         return super.keyPressed(event);
     }
 
     @Override
     public boolean charTyped(CharacterEvent event) {
         if (embeddedAltManager != null) return embeddedAltManager.charTyped(event);
+        if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.charTyped(event);
         return super.charTyped(event);
     }
 
@@ -216,6 +230,7 @@ public class PVPUtilsMainUI extends Screen {
         if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseClicked(event, consumed);
         if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseClicked(event, consumed);
         if (embeddedAltManager != null) return embeddedAltManager.mouseClicked(event, consumed);
+        if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.mouseClicked(event, consumed);
         if (returnTransition || singleplayerTransitioning) {
             return true;
         }
@@ -324,6 +339,7 @@ public class PVPUtilsMainUI extends Screen {
         if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseReleased(event);
         if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseReleased(event);
         if (embeddedAltManager != null) return embeddedAltManager.mouseReleased(event);
+        if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.mouseReleased(event);
         if (event.button() != 0) return false;
         if (titlePressed) {
             titlePressed = false;
@@ -347,11 +363,12 @@ public class PVPUtilsMainUI extends Screen {
 
     private void updateButtonPositions() {
         if (buttons.isEmpty()) return;
-        float cardW = compactCardWidth();
+        float cardW = animatedMenuCardWidth();
+        float cardY = animatedMenuCardY();
         float buttonH = compactButtonHeight();
         float gap = compactButtonGap();
         float startX = (this.width - cardW) * 0.5f + 16f;
-        float startY = compactCardY() + 18f;
+        float startY = cardY + 18f;
         float buttonW = cardW - 32f;
         for (int i = 0; i < buttons.size(); i++) {
             buttons.get(i).setBounds(startX, startY + i * (buttonH + gap), buttonW, buttonH);
@@ -364,6 +381,23 @@ public class PVPUtilsMainUI extends Screen {
         titleHitBox = new TitleHitBox(titleX, titleY, titleW, titleH);
         updateTextRegion();
         invalidateTextTexture();
+    }
+
+    private float animatedMenuCardWidth() {
+        if (!singleplayerTransitioning && !returnTransition) return compactCardWidth();
+        float progress = returnTransition ? 1f - easeOutCubic(returnTransitionProgress())
+                : easeOutCubic(singleplayerTransitionProgress());
+        float targetW = openingViaFabricPlus
+                ? Math.max(620f, Math.min(900f, this.width * 0.84f))
+                : Math.max(320f, Math.min(500f, this.width * 0.52f));
+        return compactCardWidth() + (targetW - compactCardWidth()) * progress;
+    }
+
+    private float animatedMenuCardY() {
+        if (!singleplayerTransitioning && !returnTransition) return compactCardY();
+        float progress = returnTransition ? 1f - easeOutCubic(returnTransitionProgress())
+                : easeOutCubic(singleplayerTransitionProgress());
+        return compactCardY() + (76f - compactCardY()) * progress;
     }
 
     private float titleSize() {
@@ -409,6 +443,10 @@ public class PVPUtilsMainUI extends Screen {
         }
         if (embeddedAltManager != null) {
             embeddedAltManager.renderFrameEnd();
+            return;
+        }
+        if (embeddedViaFabricPlus != null) {
+            embeddedViaFabricPlus.renderFrameEnd();
             return;
         }
         if (!pendingGpuUi || this.minecraft == null || this.minecraft.screen != this) {
@@ -462,11 +500,17 @@ public class PVPUtilsMainUI extends Screen {
 
     private void renderMainCardBlur(Canvas canvas) {
         float progress = returnTransition ? returnTransitionProgress() : singleplayerTransitionProgress();
+        float targetW = openingViaFabricPlus
+                ? Math.max(620f, Math.min(900f, this.width * 0.84f))
+                : Math.max(320f, Math.min(500f, this.width * 0.52f));
+        float targetH = openingViaFabricPlus
+                ? Math.max(370f, Math.min(this.height - 100f, this.height * 0.78f))
+                : Math.max(260f, Math.min(this.height - 154f, this.height * 0.72f));
         float t = returnTransition
                 ? 1f - easeOutCubic(progress)
                 : easeOutCubic(progress);
-        float cardW = compactCardWidth() + (Math.max(320f, Math.min(500f, this.width * 0.52f)) - compactCardWidth()) * t;
-        float cardH = compactCardHeight() + (Math.max(260f, Math.min(this.height - 154f, this.height * 0.72f)) - compactCardHeight()) * t;
+        float cardW = compactCardWidth() + (targetW - compactCardWidth()) * t;
+        float cardH = compactCardHeight() + (targetH - compactCardHeight()) * t;
         float cardY = compactCardY() + (76f - compactCardY()) * t;
         float angle = (returnTransition || singleplayerTransitioning)
                 ? easeInOutCubic(progress) * (float) Math.PI
@@ -742,6 +786,10 @@ public class PVPUtilsMainUI extends Screen {
             embeddedAltManager.onClose();
             return;
         }
+        if (embeddedViaFabricPlus != null) {
+            embeddedViaFabricPlus.onClose();
+            return;
+        }
         if (this.minecraft != null) {
             this.minecraft.setScreen(new TitleScreen());
         }
@@ -775,6 +823,7 @@ public class PVPUtilsMainUI extends Screen {
     private boolean singleplayerTransitioning;
     private boolean openingMultiplayer;
     private boolean openingAltManager;
+    private boolean openingViaFabricPlus;
     private boolean preserveEmbeddedPages;
     private long singleplayerTransitionStartMs;
     private static final long SINGLEPLAYER_TRANSITION_MS = 520L;
@@ -789,6 +838,7 @@ public class PVPUtilsMainUI extends Screen {
         singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = false;
         openingAltManager = false;
+        openingViaFabricPlus = false;
     }
 
     private void startMultiplayerTransition() {
@@ -800,6 +850,7 @@ public class PVPUtilsMainUI extends Screen {
         singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = true;
         openingAltManager = false;
+        openingViaFabricPlus = false;
     }
 
     private void startAltManagerTransition() {
@@ -811,6 +862,19 @@ public class PVPUtilsMainUI extends Screen {
         singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = false;
         openingAltManager = true;
+        openingViaFabricPlus = false;
+    }
+
+    private void startViaFabricPlusTransition() {
+        if (singleplayerTransitioning || returnTransition || !ViaFabricPlusBridge.isInstalled()) return;
+        pressedIndex = -1;
+        titlePressed = false;
+        settingsOpen = false;
+        singleplayerTransitioning = true;
+        singleplayerTransitionStartMs = animationNowNanos();
+        openingMultiplayer = false;
+        openingAltManager = false;
+        openingViaFabricPlus = true;
     }
 
     private void updateSingleplayerTransition() {
@@ -819,7 +883,10 @@ public class PVPUtilsMainUI extends Screen {
         singleplayerTransitioning = false;
         if (this.minecraft != null) {
             String path = shader == null ? null : shader.fragmentPath();
-            if (openingAltManager) {
+            if (openingViaFabricPlus) {
+                embeddedViaFabricPlus = new PVPUtilsViaFabricPlusScreen(this, path, this::beginEmbeddedReturn);
+                embeddedViaFabricPlus.initEmbedded(this.minecraft, this.width, this.height);
+            } else if (openingAltManager) {
                 embeddedAltManager = new AltManagerScreen(this, path, this::beginEmbeddedReturn);
                 embeddedAltManager.initEmbedded(this.minecraft, this.width, this.height);
             } else if (openingMultiplayer) {
@@ -843,6 +910,9 @@ public class PVPUtilsMainUI extends Screen {
         if (embeddedAltManager != null) {
             return embeddedAltManager.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
         }
+        if (embeddedViaFabricPlus != null) {
+            return embeddedViaFabricPlus.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
@@ -862,6 +932,11 @@ public class PVPUtilsMainUI extends Screen {
             embeddedAltManager.render(graphics, mouseX, mouseY, delta);
             return true;
         }
+        if (embeddedViaFabricPlus != null) {
+            renderMainBackground(graphics, mouseX, mouseY);
+            embeddedViaFabricPlus.render(graphics, mouseX, mouseY, delta);
+            return true;
+        }
         return false;
     }
 
@@ -872,6 +947,7 @@ public class PVPUtilsMainUI extends Screen {
         singleplayerTransitioning = false;
         openingMultiplayer = false;
         openingAltManager = false;
+        openingViaFabricPlus = false;
         pendingGpuAlpha = 1f;
         pendingGpuUi = true;
     }
@@ -892,6 +968,10 @@ public class PVPUtilsMainUI extends Screen {
         if (embeddedAltManager != null) {
             embeddedAltManager.removed();
             embeddedAltManager = null;
+        }
+        if (embeddedViaFabricPlus != null) {
+            embeddedViaFabricPlus.removed();
+            embeddedViaFabricPlus = null;
         }
     }
 
@@ -1210,8 +1290,12 @@ public class PVPUtilsMainUI extends Screen {
                 : easeOutCubic(singleplayerTransitionProgress());
         float baseW = compactCardWidth();
         float baseH = compactCardHeight();
-        float targetW = Math.max(320f, Math.min(500f, this.width * 0.52f));
-        float targetH = Math.max(260f, Math.min(this.height - 154f, this.height * 0.72f));
+        float targetW = openingViaFabricPlus
+                ? Math.max(620f, Math.min(900f, this.width * 0.84f))
+                : Math.max(320f, Math.min(500f, this.width * 0.52f));
+        float targetH = openingViaFabricPlus
+                ? Math.max(370f, Math.min(this.height - 100f, this.height * 0.78f))
+                : Math.max(260f, Math.min(this.height - 154f, this.height * 0.72f));
         float cardW = baseW + (targetW - baseW) * t;
         float cardH = baseH + (targetH - baseH) * t;
         float cardCx = this.width * 0.5f;
