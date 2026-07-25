@@ -56,6 +56,8 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     private float scroll;
     private float targetScroll;
     private int selected = -1;
+    private int lastWorldClick = -1;
+    private long lastWorldClickMs;
     private boolean loading = true;
     private String loadError = "";
     private long contentReadyMs = 0L;
@@ -166,7 +168,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        if (embeddedBack == null) {
+        if (embeddedBack == null || minecraft.screen == this) {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
         scroll += (targetScroll - scroll) * 0.24f;
@@ -177,7 +179,11 @@ public class PVPUtilsSingleplayerScreen extends Screen {
             if (embeddedBack != null) {
                 if (!backDispatched) {
                     backDispatched = true;
-                    embeddedBack.run();
+                    if (minecraft.screen == this) {
+                        minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+                    } else {
+                        embeddedBack.run();
+                    }
                 }
             } else {
                 minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
@@ -386,8 +392,19 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         }
         int hit = worldAt((float) event.x(), (float) event.y());
         if (hit >= 0) {
-            if (selected == hit && event.button() == 0) openSelectedWorld();
+            long now = System.currentTimeMillis();
+            if (event.button() == 0 && lastWorldClick == hit && now - lastWorldClickMs <= 350L) {
+                lastWorldClick = -1;
+                lastWorldClickMs = 0L;
+                selected = hit;
+                openSelectedWorld();
+                return true;
+            }
             selected = hit;
+            if (event.button() == 0) {
+                lastWorldClick = hit;
+                lastWorldClickMs = now;
+            }
             return true;
         }
         return true;

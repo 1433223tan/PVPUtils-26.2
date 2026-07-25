@@ -6,6 +6,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.gui.MultiplayerCompatibilityScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
@@ -52,6 +53,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     private long closeStartMs;
     private boolean closingToMain;
     private boolean backDispatched;
+    private boolean returningFromManageServer;
 
     public PVPUtilsMultiplayerScreen(Screen parent) {
         this(parent, MainUISharedBackground.activeShaderPath());
@@ -99,7 +101,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        if (embeddedBack == null) {
+        if (embeddedBack == null || minecraft.screen == this) {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
         this.mouseX = mouseX;
@@ -110,7 +112,11 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             if (embeddedBack != null) {
                 if (!backDispatched) {
                     backDispatched = true;
-                    embeddedBack.run();
+                    if (minecraft.screen == this) {
+                        minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+                    } else {
+                        embeddedBack.run();
+                    }
                 }
             } else {
                 minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
@@ -165,10 +171,13 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         int alpha = Math.round(255f * contentAlpha);
         FontRenderer.drawText(canvas, title, width * .5f - FontRenderer.measureTextWidth(title, 30f) * .5f, 50f, 30f, (alpha << 24) | 0xFFFFFF);
         drawServers(canvas, x + 16f, y + 16f, w - 32f, h - 82f, alpha);
-        drawButton(canvas, x, y + h + 12f, 112f, 32f, "Add", alpha);
-        drawButton(canvas, x + 120f, y + h + 12f, 112f, 32f, "Edit", alpha);
-        drawButton(canvas, x + 240f, y + h + 12f, 112f, 32f, "Delete", alpha);
-        drawButton(canvas, x + w - 112f, y + h + 12f, 112f, 32f, "Back", alpha);
+        float buttonY = y + h + 12f;
+        float buttonW = (w - 32f) / 5f;
+        drawButton(canvas, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f, "Add", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 1), buttonY, buttonW, 32f, "Edit", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f, "Delete", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f, "Settings", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f, "Back", alpha);
     }
 
     private void drawServers(Canvas canvas, float x, float y, float w, float h, int alpha) {
@@ -235,8 +244,11 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         if (event.button() != 0) return true;
         float x = cardX();
         float y = cardY() + cardH() + 12f;
-        if (inside(event.x(), event.y(), x, y, 112f, 32f)) {
+        float buttonW = (cardW() - 32f) / 5f;
+        if (inside(event.x(), event.y(), bottomButtonX(x, buttonW, 0), y, buttonW, 32f)) {
             playClick();
+            returningFromManageServer = true;
+            prepareOverlayReturn();
             ServerData data = new ServerData("", "", ServerData.Type.OTHER);
             minecraft.setScreen(new ManageServerScreen(this, Component.literal("Add Server"), ok -> {
                 if (ok) {
@@ -244,12 +256,14 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
                     serverList.save();
                     reloadServers();
                 }
-                minecraft.setScreen(this);
+                returnFromOverlay();
             }, data));
             return true;
         }
-        if (inside(event.x(), event.y(), x + 120f, y, 112f, 32f) && selected >= 0) {
+        if (inside(event.x(), event.y(), bottomButtonX(x, buttonW, 1), y, buttonW, 32f) && selected >= 0) {
             playClick();
+            returningFromManageServer = true;
+            prepareOverlayReturn();
             ServerData data = servers.get(selected);
             minecraft.setScreen(new ManageServerScreen(this, Component.literal("Edit Server"), ok -> {
                 if (ok) {
@@ -257,18 +271,25 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
                     serverList.save();
                     reloadServers();
                 }
-                minecraft.setScreen(this);
+                returnFromOverlay();
             }, data));
             return true;
         }
-        if (inside(event.x(), event.y(), x + 240f, y, 112f, 32f) && selected >= 0) {
+        if (inside(event.x(), event.y(), bottomButtonX(x, buttonW, 2), y, buttonW, 32f) && selected >= 0) {
             playClick();
             serverList.remove(servers.get(selected));
             serverList.save();
             reloadServers();
             return true;
         }
-        if (inside(event.x(), event.y(), x + cardW() - 112f, y, 112f, 32f)) {
+        if (inside(event.x(), event.y(), bottomButtonX(x, buttonW, 3), y, buttonW, 32f)) {
+            playClick();
+            returningFromManageServer = true;
+            prepareOverlayReturn();
+            minecraft.setScreen(new MultiplayerCompatibilityScreen(embeddedBack == null ? this : parent));
+            return true;
+        }
+        if (inside(event.x(), event.y(), bottomButtonX(x, buttonW, 4), y, buttonW, 32f)) {
             playClick();
             startClose();
             return true;
@@ -323,7 +344,11 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             defaultServerIcon.close();
             defaultServerIcon = null;
         }
-        glBackend.destroy();
+        if (returningFromManageServer) {
+            returningFromManageServer = false;
+        } else {
+            glBackend.destroy();
+        }
         super.removed();
     }
 
@@ -381,6 +406,24 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
 
     private boolean inside(double mx, double my, float x, float y, float w, float h) {
         return mx >= x && mx <= x + w && my >= y && my <= y + h;
+    }
+
+    private float bottomButtonX(float x, float buttonW, int index) {
+        return x + index * (buttonW + 8f);
+    }
+
+    private void prepareOverlayReturn() {
+        if (parent instanceof PVPUtilsMainUI mainUI && embeddedBack != null) {
+            mainUI.preserveEmbeddedPagesForOverlay();
+        }
+    }
+
+    private void returnFromOverlay() {
+        if (parent instanceof PVPUtilsMainUI && embeddedBack != null) {
+            minecraft.setScreen(parent);
+        } else {
+            minecraft.setScreen(this);
+        }
     }
 
     private void playClick() {

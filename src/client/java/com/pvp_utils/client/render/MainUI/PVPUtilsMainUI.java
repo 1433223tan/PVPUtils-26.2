@@ -6,6 +6,7 @@ import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.alt.AltManagerScreen;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
@@ -143,8 +144,9 @@ public class PVPUtilsMainUI extends Screen {
             startMultiplayerTransition();
         }));
         buttons.add(new MenuButton("Alt Manager", "\uE853", () -> {
+            if (this.minecraft != null) this.minecraft.setScreen(new AltManagerScreen(this));
         }));
-        buttons.add(new MenuButton("Proxy Manager", "\uE80D", () -> {
+        buttons.add(new MenuButton("ViaFabricPlus", "\uE64C", () -> {
         }));
         buttons.add(new MenuButton("Options", "\uE8B8", () -> {
             if (this.minecraft != null) this.minecraft.setScreen(new OptionsScreen(returnParent(), this.minecraft.options));
@@ -714,7 +716,11 @@ public class PVPUtilsMainUI extends Screen {
 
     @Override
     public void removed() {
-        disposeEmbeddedPages();
+        if (preserveEmbeddedPages) {
+            preserveEmbeddedPages = false;
+        } else {
+            disposeEmbeddedPages();
+        }
         if (shader != null) {
             shader.close();
             shader = null;
@@ -735,6 +741,7 @@ public class PVPUtilsMainUI extends Screen {
 
     private boolean singleplayerTransitioning;
     private boolean openingMultiplayer;
+    private boolean preserveEmbeddedPages;
     private long singleplayerTransitionStartMs;
     private static final long SINGLEPLAYER_TRANSITION_MS = 520L;
     private static final long RETURN_TRANSITION_MS = 440L;
@@ -808,6 +815,10 @@ public class PVPUtilsMainUI extends Screen {
         openingMultiplayer = false;
         pendingGpuAlpha = 1f;
         pendingGpuUi = true;
+    }
+
+    void preserveEmbeddedPagesForOverlay() {
+        preserveEmbeddedPages = true;
     }
 
     private void disposeEmbeddedPages() {
