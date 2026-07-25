@@ -1,13 +1,24 @@
 package com.pvp_utils.client;
 
+import com.google.gson.JsonParser;
+import com.pvp_utils.PVPUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.IoSupplier;
 import net.minecraft.world.level.block.entity.SignText;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
+import java.nio.charset.StandardCharsets;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -17,6 +28,7 @@ public final class ServerTranslationContents {
     private static final ReferenceQueue<TranslatableContents> QUEUE = new ReferenceQueue<>();
     private static final Set<IdentityWeakReference> SERVER_CONTENTS = ConcurrentHashMap.newKeySet();
     private static final Map<SignKey, String[]> PENDING_SIGN_UPDATES = new ConcurrentHashMap<>();
+    private static final Set<String> VANILLA_TRANSLATION_KEYS = loadVanillaTranslationKeys();
 
     private ServerTranslationContents() {
     }
@@ -54,8 +66,10 @@ public final class ServerTranslationContents {
         }
         if (value instanceof Component component) {
             if (component.getContents() instanceof TranslatableContents contents) {
-                purgeCollectedContents();
-                SERVER_CONTENTS.add(new IdentityWeakReference(contents, QUEUE));
+                if (!VANILLA_TRANSLATION_KEYS.contains(contents.getKey())) {
+                    purgeCollectedContents();
+                    SERVER_CONTENTS.add(new IdentityWeakReference(contents, QUEUE));
+                }
                 for (Object argument : contents.getArgs()) {
                     mark(argument, visited);
                 }
@@ -64,6 +78,24 @@ public final class ServerTranslationContents {
                 mark(sibling, visited);
             }
             return;
+        }
+    }
+
+    private static Set<String> loadVanillaTranslationKeys() {
+        IoSupplier<InputStream> resource = Minecraft.getInstance().getVanillaPackResources().getResource(
+                PackType.CLIENT_RESOURCES,
+                Identifier.withDefaultNamespace("lang/en_us.json")
+        );
+        if (resource == null) {
+            PVPUtils.LOGGER.warn("Could not find the vanilla English language file");
+            return Set.of();
+        }
+
+        try (Reader reader = new InputStreamReader(resource.get(), StandardCharsets.UTF_8)) {
+            return Set.copyOf(JsonParser.parseReader(reader).getAsJsonObject().keySet());
+        } catch (IOException exception) {
+            PVPUtils.LOGGER.warn("Could not load vanilla translation keys", exception);
+            return Set.of();
         }
     }
 
