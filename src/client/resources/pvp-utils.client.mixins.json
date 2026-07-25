@@ -42,6 +42,7 @@
     "ServerReconfigScreenMixin",
     "HotbarSmoothMixin",
     "JoinMultiplayerScreenMixin",
+    "AnvilScreenMixin",
     "ClientPacketListenerMixin",
     "ClientSuggestionProviderMixin",
     "SignUpdateConnectionMixin",
