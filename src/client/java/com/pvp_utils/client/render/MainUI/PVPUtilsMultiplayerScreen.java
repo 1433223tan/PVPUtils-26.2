@@ -35,6 +35,7 @@ import java.util.Map;
 public final class PVPUtilsMultiplayerScreen extends Screen {
     private final Screen parent;
     private final String shaderPath;
+    private final Runnable embeddedBack;
     private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final List<ServerData> servers = new ArrayList<>();
     private final List<Float> hover = new ArrayList<>();
@@ -50,16 +51,26 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     private long openStartMs;
     private long closeStartMs;
     private boolean closingToMain;
+    private boolean backDispatched;
 
     public PVPUtilsMultiplayerScreen(Screen parent) {
         this(parent, MainUISharedBackground.activeShaderPath());
     }
 
     public PVPUtilsMultiplayerScreen(Screen parent, String shaderPath) {
+        this(parent, shaderPath, null);
+    }
+
+    public PVPUtilsMultiplayerScreen(Screen parent, String shaderPath, Runnable embeddedBack) {
         super(Component.literal("Multiplayer"));
         this.parent = parent;
         this.shaderPath = shaderPath;
+        this.embeddedBack = embeddedBack;
         if (shaderPath != null && !shaderPath.isBlank()) MainUISharedBackground.setActiveShader(shaderPath);
+    }
+
+    public void initEmbedded(Minecraft client, int width, int height) {
+        init(width, height);
     }
 
     @Override
@@ -67,6 +78,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         openStartMs = System.currentTimeMillis();
         closeStartMs = 0L;
         closingToMain = false;
+        backDispatched = false;
         serverList = new ServerList(minecraft);
         serverList.load();
         reloadServers();
@@ -87,13 +99,22 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        MainUISharedBackground.render(graphics, mouseX, mouseY);
+        if (embeddedBack == null) {
+            MainUISharedBackground.render(graphics, mouseX, mouseY);
+        }
         this.mouseX = mouseX;
         this.mouseY = mouseY;
         scroll += (targetScroll - scroll) * 0.20f;
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null) {
-            minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+            if (embeddedBack != null) {
+                if (!backDispatched) {
+                    backDispatched = true;
+                    embeddedBack.run();
+                }
+            } else {
+                minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+            }
         }
     }
 
@@ -102,7 +123,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     }
 
     public void renderFrameEnd() {
-        if (!pendingFrame || minecraft == null || minecraft.screen != this) {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
             pendingFrame = false;
             return;
         }
@@ -113,8 +134,10 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             float y = cardY();
             float w = cardW();
             float h = cardH();
-            SkiaBlurRenderer.getInstance().render(canvas, glBackend.getContext(), minecraft, mainFramebufferId(),
-                    x, y, w, h, 20f, 0x12000000, 0.95f);
+            if (!closingToMain) {
+                SkiaBlurRenderer.getInstance().render(canvas, glBackend.getContext(), minecraft, mainFramebufferId(),
+                        x, y, w, h, 20f, 0x12000000, 0.95f);
+            }
             draw(canvas);
         } finally {
             glBackend.end();
@@ -328,9 +351,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         if (serverIcons.containsKey(index)) return serverIcons.get(index);
         byte[] bytes = server.getIconBytes();
         if (bytes == null || bytes.length == 0) {
-            Image fallback = defaultServerIcon();
-            serverIcons.put(index, fallback);
-            return fallback;
+            return defaultServerIcon();
         }
         try {
             Image image = Image.makeFromEncoded(bytes);
@@ -338,9 +359,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             return image;
         } catch (RuntimeException ignored) {
             serverIcons.put(index, null);
-            Image fallback = defaultServerIcon();
-            serverIcons.put(index, fallback);
-            return fallback;
+            return defaultServerIcon();
         }
     }
 

@@ -18,24 +18,17 @@ import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.lwjgl.opengl.GL45.*;
 
 public final class SkiaBlurRenderer {
     private static final SkiaBlurRenderer INSTANCE = new SkiaBlurRenderer();
     private static final float MIN_CAPTURE_MARGIN = 18f;
-    private static final int MAX_CAPTURE_TARGETS = 16;
-
     private final Paint blurPaint = new Paint().setAntiAlias(true);
     private final Paint frostPaint = new Paint().setAntiAlias(true);
     private final Paint tintPaint = new Paint().setAntiAlias(true);
     private final SkiaGlBackend framebufferBackend = new SkiaGlBackend();
-    private final LinkedHashMap<Long, CaptureTarget> captureTargets = new LinkedHashMap<>(16, 0.75f, true);
-    private DirectContext captureContext;
     private ImageFilter linearizeFilter;
     private ImageFilter blurFilter;
     private ImageFilter encodeFilter;
@@ -130,6 +123,7 @@ public final class SkiaBlurRenderer {
         } finally {
             blurPaint.setImageFilter(null);
             canvas.restore();
+            capture.image.close();
         }
     }
 
@@ -162,6 +156,7 @@ public final class SkiaBlurRenderer {
         } finally {
             blurPaint.setImageFilter(null);
             canvas.restore();
+            capture.image.close();
         }
     }
 
@@ -197,8 +192,10 @@ public final class SkiaBlurRenderer {
         glGetIntegerv(GL_DRAW_BUFFER, oldDrawBuffer);
         glGetIntegerv(GL_VIEWPORT, oldViewport);
         glGetIntegerv(GL_SCISSOR_BOX, oldScissorBox);
+        CaptureTarget target = null;
+        boolean handedOff = false;
         try {
-            CaptureTarget target = ensureCaptureTarget(context, copyW, copyH);
+            target = ensureCaptureTarget(context, copyW, copyH);
             if (target == null) return Capture.EMPTY;
 
             glDisable(GL_FRAMEBUFFER_SRGB);
@@ -222,9 +219,16 @@ public final class SkiaBlurRenderer {
                     GL_COLOR_BUFFER_BIT,
                     GL_NEAREST
             );
+            glFlush();
+            glDeleteFramebuffers(target.framebufferId);
+            handedOff = true;
             return new Capture(target.image, copyW, copyH,
                     left / scale, top / scale, copyW / scale, copyH / scale);
         } finally {
+            if (target != null && !handedOff) {
+                glDeleteFramebuffers(target.framebufferId);
+                target.image.close();
+            }
             glBindFramebuffer(GL_READ_FRAMEBUFFER, oldReadFramebuffer[0]);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldDrawFramebuffer[0]);
             restoreReadBuffer(oldReadFramebuffer[0], oldReadBuffer[0]);
@@ -244,15 +248,6 @@ public final class SkiaBlurRenderer {
     }
 
     private CaptureTarget ensureCaptureTarget(DirectContext context, int requiredW, int requiredH) {
-        if (captureContext != context) {
-            destroyCaptureTargets();
-            captureContext = context;
-        }
-
-        long key = ((long) requiredW << 32) | (requiredH & 0xFFFFFFFFL);
-        CaptureTarget cached = captureTargets.get(key);
-        if (cached != null) return cached;
-
         int textureId = glGenTextures();
         int framebufferId = glGenFramebuffers();
         Image image = null;
@@ -275,8 +270,6 @@ public final class SkiaBlurRenderer {
             image = Image.adoptGLTextureFrom(context, textureId, GL_TEXTURE_2D, requiredW, requiredH,
                     GL_RGBA8, SurfaceOrigin.BOTTOM_LEFT, ColorType.RGB_888X);
             created = new CaptureTarget(textureId, framebufferId, requiredW, requiredH, image);
-            captureTargets.put(key, created);
-            evictCaptureTargets();
             return created;
         } finally {
             if (created == null) {
@@ -287,15 +280,6 @@ public final class SkiaBlurRenderer {
                     glDeleteTextures(textureId);
                 }
             }
-        }
-    }
-
-    private void evictCaptureTargets() {
-        Iterator<Map.Entry<Long, CaptureTarget>> iterator = captureTargets.entrySet().iterator();
-        while (captureTargets.size() > MAX_CAPTURE_TARGETS && iterator.hasNext()) {
-            CaptureTarget target = iterator.next().getValue();
-            iterator.remove();
-            destroyCaptureTarget(target);
         }
     }
 
@@ -316,18 +300,6 @@ public final class SkiaBlurRenderer {
         blurFilter = null;
         linearizeFilter = null;
         filterSigma = Float.NaN;
-    }
-
-    private void destroyCaptureTargets() {
-        for (CaptureTarget target : captureTargets.values()) {
-            destroyCaptureTarget(target);
-        }
-        captureTargets.clear();
-    }
-
-    private void destroyCaptureTarget(CaptureTarget target) {
-        if (target.framebufferId != 0) glDeleteFramebuffers(target.framebufferId);
-        target.image.close();
     }
 
     private int prepareReadFramebuffer(int framebufferId) {

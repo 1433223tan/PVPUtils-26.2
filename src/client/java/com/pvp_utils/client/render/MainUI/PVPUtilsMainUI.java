@@ -93,6 +93,8 @@ public class PVPUtilsMainUI extends Screen {
     private boolean pendingGpuUi;
     private float pendingGpuAlpha = 1f;
     private long returnTransitionStartMs;
+    private PVPUtilsSingleplayerScreen embeddedSingleplayer;
+    private PVPUtilsMultiplayerScreen embeddedMultiplayer;
 
     public PVPUtilsMainUI(Screen parent) {
         this(parent, false);
@@ -131,7 +133,7 @@ public class PVPUtilsMainUI extends Screen {
         MainUISharedBackground.setActiveShader(shader.fragmentPath());
         hintStartMs = showEntryHint ? System.currentTimeMillis() : 0L;
         entryFadeStartMs = entryFade ? System.currentTimeMillis() : 0L;
-        returnTransitionStartMs = returnTransition ? System.currentTimeMillis() : 0L;
+        returnTransitionStartMs = returnTransition ? animationNowNanos() : 0L;
         invalidateTextTexture();
         refreshThemeFromBackground();
         buttons.clear();
@@ -156,16 +158,20 @@ public class PVPUtilsMainUI extends Screen {
     @Override
     protected void repositionElements() {
         updateButtonPositions();
+        if (embeddedSingleplayer != null) embeddedSingleplayer.resize(this.width, this.height);
+        if (embeddedMultiplayer != null) embeddedMultiplayer.resize(this.width, this.height);
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        if (renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
         updateSettingsPanel(mouseX, mouseY);
         if (returnTransition && returnTransitionProgress() >= 1f) {
             returnTransition = false;
             returnTransitionStartMs = 0L;
         }
         updateSingleplayerTransition();
+        if (renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
         renderMainBackground(graphics, mouseX, mouseY);
         float entryAlpha = entryAlpha();
         for (int i = 0; i < buttons.size(); i++) {
@@ -182,6 +188,8 @@ public class PVPUtilsMainUI extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
+        if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseClicked(event, consumed);
+        if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseClicked(event, consumed);
         if (returnTransition || singleplayerTransitioning) {
             return true;
         }
@@ -287,6 +295,8 @@ public class PVPUtilsMainUI extends Screen {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
+        if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseReleased(event);
+        if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseReleased(event);
         if (event.button() != 0) return false;
         if (titlePressed) {
             titlePressed = false;
@@ -362,6 +372,14 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     public void renderFrameEnd() {
+        if (embeddedSingleplayer != null) {
+            embeddedSingleplayer.renderFrameEnd();
+            return;
+        }
+        if (embeddedMultiplayer != null) {
+            embeddedMultiplayer.renderFrameEnd();
+            return;
+        }
         if (!pendingGpuUi || this.minecraft == null || this.minecraft.screen != this) {
             pendingGpuUi = false;
             return;
@@ -374,7 +392,7 @@ public class PVPUtilsMainUI extends Screen {
         Canvas c = glBackend.begin(mainFramebufferId());
         if (c == null) return;
         try {
-            if (pendingGpuAlpha > 0.001f) {
+            if (pendingGpuAlpha > 0.001f && !singleplayerTransitioning && !returnTransition) {
                 renderMainCardBlur(c);
             }
             renderCompactMenuCard(c, alpha);
@@ -398,8 +416,10 @@ public class PVPUtilsMainUI extends Screen {
                 renderSettingsPlaceholder(c);
                 renderSettingsPanel(c);
             }
-            for (MenuButton button : buttons) {
-                button.renderText(c, alpha * controlsFade);
+            if (controlsFade > 0.001f && alpha > 0.001f) {
+                for (MenuButton button : buttons) {
+                    button.renderText(c, alpha * controlsFade);
+                }
             }
             if (controlsFade > 0.08f) {
                 renderVersionText(c);
@@ -679,6 +699,14 @@ public class PVPUtilsMainUI extends Screen {
 
     @Override
     public void onClose() {
+        if (embeddedSingleplayer != null) {
+            embeddedSingleplayer.onClose();
+            return;
+        }
+        if (embeddedMultiplayer != null) {
+            embeddedMultiplayer.onClose();
+            return;
+        }
         if (this.minecraft != null) {
             this.minecraft.setScreen(new TitleScreen());
         }
@@ -686,6 +714,7 @@ public class PVPUtilsMainUI extends Screen {
 
     @Override
     public void removed() {
+        disposeEmbeddedPages();
         if (shader != null) {
             shader.close();
             shader = null;
@@ -716,7 +745,7 @@ public class PVPUtilsMainUI extends Screen {
         titlePressed = false;
         settingsOpen = false;
         singleplayerTransitioning = true;
-        singleplayerTransitionStartMs = System.currentTimeMillis();
+        singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = false;
     }
 
@@ -726,30 +755,86 @@ public class PVPUtilsMainUI extends Screen {
         titlePressed = false;
         settingsOpen = false;
         singleplayerTransitioning = true;
-        singleplayerTransitionStartMs = System.currentTimeMillis();
+        singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = true;
     }
 
     private void updateSingleplayerTransition() {
         if (!singleplayerTransitioning) return;
-        if (System.currentTimeMillis() - singleplayerTransitionStartMs < SINGLEPLAYER_TRANSITION_MS) return;
+        if (animationNowNanos() - singleplayerTransitionStartMs < SINGLEPLAYER_TRANSITION_MS * 1_000_000L) return;
         singleplayerTransitioning = false;
         if (this.minecraft != null) {
             String path = shader == null ? null : shader.fragmentPath();
-            this.minecraft.setScreen(openingMultiplayer
-                    ? new PVPUtilsMultiplayerScreen(returnParent(), path)
-                    : new PVPUtilsSingleplayerScreen(returnParent(), path));
+            if (openingMultiplayer) {
+                embeddedMultiplayer = new PVPUtilsMultiplayerScreen(this, path, this::beginEmbeddedReturn);
+                embeddedMultiplayer.initEmbedded(this.minecraft, this.width, this.height);
+            } else {
+                embeddedSingleplayer = new PVPUtilsSingleplayerScreen(this, path, this::beginEmbeddedReturn);
+                embeddedSingleplayer.initEmbedded(this.minecraft, this.width, this.height);
+            }
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (embeddedSingleplayer != null) {
+            return embeddedSingleplayer.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        }
+        if (embeddedMultiplayer != null) {
+            return embeddedMultiplayer.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    private boolean renderEmbeddedPage(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        if (embeddedSingleplayer != null) {
+            renderMainBackground(graphics, mouseX, mouseY);
+            embeddedSingleplayer.render(graphics, mouseX, mouseY, delta);
+            return true;
+        }
+        if (embeddedMultiplayer != null) {
+            renderMainBackground(graphics, mouseX, mouseY);
+            embeddedMultiplayer.render(graphics, mouseX, mouseY, delta);
+            return true;
+        }
+        return false;
+    }
+
+    private void beginEmbeddedReturn() {
+        disposeEmbeddedPages();
+        returnTransition = true;
+        returnTransitionStartMs = animationNowNanos();
+        singleplayerTransitioning = false;
+        openingMultiplayer = false;
+        pendingGpuAlpha = 1f;
+        pendingGpuUi = true;
+    }
+
+    private void disposeEmbeddedPages() {
+        if (embeddedSingleplayer != null) {
+            embeddedSingleplayer.removed();
+            embeddedSingleplayer = null;
+        }
+        if (embeddedMultiplayer != null) {
+            embeddedMultiplayer.removed();
+            embeddedMultiplayer = null;
         }
     }
 
     private float singleplayerTransitionProgress() {
         if (!singleplayerTransitioning || singleplayerTransitionStartMs <= 0L) return 0f;
-        return Math.max(0f, Math.min(1f, (System.currentTimeMillis() - singleplayerTransitionStartMs) / (float) SINGLEPLAYER_TRANSITION_MS));
+        return Math.max(0f, Math.min(1f,
+                (animationNowNanos() - singleplayerTransitionStartMs) / (SINGLEPLAYER_TRANSITION_MS * 1_000_000f)));
     }
 
     private float returnTransitionProgress() {
         if (!returnTransition || returnTransitionStartMs <= 0L) return 0f;
-        return Math.max(0f, Math.min(1f, (System.currentTimeMillis() - returnTransitionStartMs) / (float) RETURN_TRANSITION_MS));
+        return Math.max(0f, Math.min(1f,
+                (animationNowNanos() - returnTransitionStartMs) / (RETURN_TRANSITION_MS * 1_000_000f)));
+    }
+
+    private long animationNowNanos() {
+        return System.nanoTime();
     }
 
     private void refreshShader() {
@@ -1308,7 +1393,11 @@ public class PVPUtilsMainUI extends Screen {
         float t = Math.max(0f, Math.min(1f, value));
         return t < 0.5f
                 ? 4f * t * t * t
-                : 1f - (float) Math.pow(-2f * t + 2f, 3f) * 0.5f;
+                : cubicInverted(2f - 2f * t);
+    }
+
+    private float cubicInverted(float value) {
+        return 1f - value * value * value * 0.5f;
     }
 
     private void destroyTextTexture() {

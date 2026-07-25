@@ -162,7 +162,7 @@ public final class SkiaGlBackend {
             renderTarget = null;
         }
 
-        renderTarget = BackendRenderTarget.makeGL(targetW, targetH, 0, 0, targetFramebufferId, FramebufferFormat.GR_GL_RGBA8);
+        renderTarget = BackendRenderTarget.makeGL(targetW, targetH, 0, 8, targetFramebufferId, FramebufferFormat.GR_GL_RGBA8);
         surface = Surface.wrapBackendRenderTarget(
                 context,
                 renderTarget,

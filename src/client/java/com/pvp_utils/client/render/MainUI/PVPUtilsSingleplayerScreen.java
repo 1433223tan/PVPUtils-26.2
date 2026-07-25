@@ -40,6 +40,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     private static final long OPEN_MS = 440L;
     private static final long CLOSE_MS = 440L;
     private final String shaderPath;
+    private final Runnable embeddedBack;
     private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final List<WorldEntry> worlds = new ArrayList<>();
     private final List<Float> worldHover = new ArrayList<>();
@@ -59,13 +60,23 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     private String loadError = "";
     private long contentReadyMs = 0L;
     private float contentAlpha;
+    private boolean backDispatched;
 
     public PVPUtilsSingleplayerScreen(Screen parent, String shaderPath) {
+        this(parent, shaderPath, null);
+    }
+
+    public PVPUtilsSingleplayerScreen(Screen parent, String shaderPath, Runnable embeddedBack) {
         super(Component.literal("Single player"));
         this.shaderPath = shaderPath;
+        this.embeddedBack = embeddedBack;
         if (shaderPath != null && !shaderPath.isBlank()) {
             MainUISharedBackground.setActiveShader(shaderPath);
         }
+    }
+
+    public void initEmbedded(Minecraft client, int width, int height) {
+        init(width, height);
     }
 
     @Override
@@ -73,6 +84,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         openStartMs = System.currentTimeMillis();
         closeStartMs = 0L;
         closingToMain = false;
+        backDispatched = false;
         contentAlpha = 0f;
         rebuildButtons();
         loadWorlds();
@@ -154,13 +166,22 @@ public class PVPUtilsSingleplayerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        MainUISharedBackground.render(graphics, mouseX, mouseY);
+        if (embeddedBack == null) {
+            MainUISharedBackground.render(graphics, mouseX, mouseY);
+        }
         scroll += (targetScroll - scroll) * 0.24f;
         pendingMouseX = mouseX;
         pendingMouseY = mouseY;
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null) {
-            minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+            if (embeddedBack != null) {
+                if (!backDispatched) {
+                    backDispatched = true;
+                    embeddedBack.run();
+                }
+            } else {
+                minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+            }
         }
     }
 
@@ -177,26 +198,28 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     }
 
     public void renderFrameEnd() {
-        if (!pendingFrame || minecraft == null || minecraft.screen != this) {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
             pendingFrame = false;
             return;
         }
         Canvas canvas = glBackend.begin(mainFramebufferId());
         if (canvas == null) return;
         try {
-            SkiaBlurRenderer.getInstance().render(
-                    canvas,
-                    glBackend.getContext(),
-                    Minecraft.getInstance(),
-                    mainFramebufferId(),
-                    cardX(),
-                    cardY(),
-                    cardW(),
-                    cardH(),
-                    18f,
-                    0x12000000,
-                    blurStrength()
-            );
+            if (!closingToMain) {
+                SkiaBlurRenderer.getInstance().render(
+                        canvas,
+                        glBackend.getContext(),
+                        Minecraft.getInstance(),
+                        mainFramebufferId(),
+                        cardX(),
+                        cardY(),
+                        cardW(),
+                        cardH(),
+                        18f,
+                        0x12000000,
+                        blurStrength()
+                );
+            }
             draw(canvas);
         } finally {
             glBackend.end();

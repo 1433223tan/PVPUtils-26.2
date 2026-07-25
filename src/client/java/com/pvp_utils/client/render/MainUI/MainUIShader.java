@@ -74,6 +74,9 @@ public final class MainUIShader {
     private ByteBuffer readBuffer;
     private boolean failed;
     private boolean loggedLoaded;
+    private int timeUniform = -1;
+    private int mouseUniform = -1;
+    private int resolutionUniform = -1;
 
     private MainUIShader(String fragmentPath) {
         this.textureId = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_shader_" + nextTextureId++);
@@ -153,11 +156,6 @@ public final class MainUIShader {
         setUniform2f("resolution", fbW, fbH);
         GL30.glBindVertexArray(vao);
         GL11.glDrawArrays(GL11.GL_TRIANGLE_STRIP, 0, 4);
-        int error = GL11.glGetError();
-        if (error != GL11.GL_NO_ERROR) {
-            System.err.println("PVPUtils MainUI shader draw GL error (" + fragmentPath + "): " + error);
-        }
-
         readBuffer.clear();
         GL11.glReadPixels(0, 0, fbW, fbH, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, readBuffer);
         readBuffer.rewind();
@@ -199,6 +197,9 @@ public final class MainUIShader {
             }
             GL20.glDeleteShader(vertex);
             GL20.glDeleteShader(fragment);
+            timeUniform = GL20.glGetUniformLocation(program, "time");
+            mouseUniform = GL20.glGetUniformLocation(program, "mouse");
+            resolutionUniform = GL20.glGetUniformLocation(program, "resolution");
             createQuad();
             if (!loggedLoaded) {
                 System.err.println("PVPUtils MainUI shader loaded: " + fragmentPath);
@@ -271,6 +272,9 @@ public final class MainUIShader {
             GL20.glDeleteProgram(program);
             program = 0;
         }
+        timeUniform = -1;
+        mouseUniform = -1;
+        resolutionUniform = -1;
         if (vbo != 0) {
             GL15.glDeleteBuffers(vbo);
             vbo = 0;
@@ -304,12 +308,12 @@ public final class MainUIShader {
     }
 
     private void setUniform1f(String name, float value) {
-        int location = GL20.glGetUniformLocation(program, name);
+        int location = "time".equals(name) ? timeUniform : -1;
         if (location >= 0) GL20.glUniform1f(location, value);
     }
 
     private void setUniform2f(String name, float x, float y) {
-        int location = GL20.glGetUniformLocation(program, name);
+        int location = "mouse".equals(name) ? mouseUniform : resolutionUniform;
         if (location >= 0) GL20.glUniform2f(location, x, y);
     }
 
