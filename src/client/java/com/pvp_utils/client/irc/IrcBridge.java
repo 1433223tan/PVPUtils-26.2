@@ -153,6 +153,19 @@ public final class IrcBridge {
         return Boolean.TRUE.equals(result);
     }
 
+    public static String currentUsername() {
+        Class<?> userManager = findClass(USER_MANAGER_CLASS);
+        if (userManager == null) {
+            return "";
+        }
+        Object currentUser = invokeStatic(userManager, "currentUser", new Class<?>[0]);
+        if (currentUser == null) {
+            return "";
+        }
+        Object username = invoke(currentUser, "username", new Class<?>[0]);
+        return username == null ? "" : username.toString().trim();
+    }
+
     public static boolean hasCurrentCosmetic(String kind) {
         Class<?> service = findClass(COSMETIC_SERVICE_CLASS);
         if (service == null) {

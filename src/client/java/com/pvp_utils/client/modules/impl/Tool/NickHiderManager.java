@@ -1,7 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.irc.user.IrcUserManager;
+import com.pvp_utils.client.irc.IrcBridge;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
@@ -78,9 +78,9 @@ public final class NickHiderManager {
 
     private static String replacementName() {
         if (Config.nickHiderIrc) {
-            var profile = IrcUserManager.currentUser();
-            if (profile != null && profile.username() != null && !profile.username().isBlank()) {
-                return normalizeNickname(profile.username());
+            String ircName = IrcBridge.currentUsername();
+            if (ircName != null && !ircName.isBlank()) {
+                return normalizeNickname(ircName);
             }
         }
         return normalizeNickname(Config.nickHiderNickname);
