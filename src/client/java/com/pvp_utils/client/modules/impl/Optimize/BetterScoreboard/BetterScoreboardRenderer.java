@@ -4,7 +4,10 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,6 +30,7 @@ public final class BetterScoreboardRenderer {
     private static final float RADIUS = 9.0f;
     private static final float VISUAL_Y_OFFSET = 3.0f;
     private static final float TITLE_CENTER_FIX = -1.5f;
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
 
     private BetterScoreboardRenderer() {
     }
@@ -81,7 +85,7 @@ public final class BetterScoreboardRenderer {
         float y = clamp(contentY - bgPad, 0.0f, Math.max(0.0f, guiH - h));
 
         SkiaBlurRenderer.getInstance().render(client, x, y, w, h, RADIUS * scale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
-        Canvas canvas = SkiaRenderer.beginRegion((int) Math.floor(x), (int) Math.floor(y), (int) Math.ceil(w), (int) Math.ceil(h));
+        Canvas canvas = glBackend.begin(mainFramebufferId(client));
         if (canvas == null) {
             return;
         }
@@ -90,9 +94,17 @@ public final class BetterScoreboardRenderer {
         try {
             drawCard(canvas, nativeGlyphs, x, y, w, h, bgPad, title, rows, scale);
         } finally {
-            SkiaRenderer.endRegion(graphics);
+            glBackend.end();
         }
         drawNativeGlyphs(graphics, client, nativeGlyphs);
+    }
+
+    private int mainFramebufferId(Minecraft client) {
+        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
+        }
+        return 0;
     }
 
     private void drawCard(Canvas canvas, List<NativeGlyph> nativeGlyphs, float x, float y, float w, float h, float bgPad, String title, List<BetterScoreboardManager.Row> rows, float scale) {

@@ -140,6 +140,7 @@ public class Config {
     public static boolean betterScoreboard = false;
     public static boolean betterScoreboardHideScores = false;
     public static boolean betterScoreboardVisualImprovement = false;
+    public static boolean betterItemSelector = false;
     public static boolean betterMouseLogic = false;
     public static boolean smoothHotbarScrolling = false;
     public static float smoothHotbarAnimationSpeed = 0.55f;
@@ -299,7 +300,7 @@ public class Config {
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
     public enum TargetHudMode { LITE, NEW, BLUR }
     public enum BlockCountDisplayMode { NEW, BLUR }
-    public enum KeystrokesMode { LITE, NEW }
+    public enum KeystrokesMode { LITE, NEW, BLUR }
     public enum ArmorHudMode { LITE, NEW }
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
@@ -747,6 +748,7 @@ public class Config {
             new ModuleRule("CustomCape", "customCape", "customCape", "customCapeImage"),
             new ModuleRule("BetterChat", "betterChat", "betterChat"),
             new ModuleRule("BetterScoreboard", "betterScoreboard", "betterScoreboard"),
+            new ModuleRule("BetterItemSelector", "betterItemSelector", "betterItemSelector"),
             new ModuleRule("BetterMouseLogic", "betterMouseLogic", "betterMouseLogic"),
             new ModuleRule("SmoothHotbarScrolling", "smoothHotbar", "smoothHotbarScrolling", "hotbarRollover"),
             new ModuleRule("MainUI", "mainUI", "useMainUI", "mainUIBackgroundImage", "mainUIGlslShader"),

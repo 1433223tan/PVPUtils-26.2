@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Optimize.BetterItemSelector.BetterItemSelectorRenderer;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -25,7 +26,7 @@ public class HotbarSmoothMixin {
 
     @WrapMethod(method = "renderHotbarAndDecorations")
     private void pvp_utils$wrapHotbarAndDecorations(GuiGraphics graphics, DeltaTracker deltaTracker, Operation<Void> operation) {
-        if (!Config.smoothHotbarScrolling) {
+        if (!Config.smoothHotbarScrolling && !Config.betterItemSelector) {
             operation.call(graphics, deltaTracker);
             return;
         }
@@ -45,11 +46,28 @@ public class HotbarSmoothMixin {
 
     @WrapOperation(
             method = "renderItemHotbar",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V", ordinal = 0)
+    )
+    private void pvp_utils$drawBetterHotbar(GuiGraphics graphics, RenderPipeline pipeline, Identifier texture, int x, int y, int width, int height, Operation<Void> operation) {
+        if (!Config.betterItemSelector) {
+            operation.call(graphics, pipeline, texture, x, y, width, height);
+            return;
+        }
+        BetterItemSelectorRenderer.getInstance().renderBackground(Minecraft.getInstance(), x, y);
+    }
+
+    @WrapOperation(
+            method = "renderItemHotbar",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V", ordinal = 1)
     )
     private void pvp_utils$moveSelector(GuiGraphics graphics, RenderPipeline pipeline, Identifier texture, int x, int y, int width, int height, Operation<Void> operation) {
-        if (!Config.smoothHotbarScrolling) {
+        if (!Config.smoothHotbarScrolling && !Config.betterItemSelector) {
             operation.call(graphics, pipeline, texture, x, y, width, height);
+            return;
+        }
+        if (Config.betterItemSelector) {
+            int selectedSlot = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.getInventory().getSelectedSlot() : 0;
+            BetterItemSelectorRenderer.getInstance().renderSelector(Minecraft.getInstance(), x - selectedSlot * SLOT_WIDTH, y, pvp_utils$smoothSelectorPos);
             return;
         }
         Matrix3x2fStack pose = graphics.pose();
