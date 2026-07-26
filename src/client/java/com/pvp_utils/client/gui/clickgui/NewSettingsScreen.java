@@ -157,13 +157,25 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     private float getUiScale(int width, int height) {
-        float scaleX = Math.max(0.1f, (width - SCREEN_MARGIN) / BASE_CARD_W);
-        float scaleY = Math.max(0.1f, (height - SCREEN_MARGIN) / BASE_CARD_H);
-        return Math.min(1f, Math.min(scaleX, scaleY));
+        int layoutWidth = layoutWidth();
+        int layoutHeight = layoutHeight();
+        float fitX = Math.max(0.1f, (layoutWidth - SCREEN_MARGIN) / BASE_CARD_W);
+        float fitY = Math.max(0.1f, (layoutHeight - SCREEN_MARGIN) / BASE_CARD_H);
+        float fit = Math.min(1f, Math.min(fitX, fitY));
+        float guiScale = minecraft == null ? 2f : Math.max(1f, (float) minecraft.getWindow().getGuiScale());
+        return fit * 2f / guiScale;
     }
 
     private float getVisualScale(int width, int height) {
         return getUiScale(width, height) * (0.9f + 0.1f * easeOutCubic(openProgress));
+    }
+
+    private int layoutWidth() {
+        return minecraft == null ? this.width : Math.max(1, Math.round(minecraft.getWindow().getWidth() * 0.5f));
+    }
+
+    private int layoutHeight() {
+        return minecraft == null ? this.height : Math.max(1, Math.round(minecraft.getWindow().getHeight() * 0.5f));
     }
 
     @Override
@@ -216,10 +228,12 @@ public class NewSettingsScreen extends SkiaScreen {
 
     private void captureMainFramebuffer(int framebufferId) {
         var window = minecraft.getWindow();
-        float[] l = layout(width, height);
+        int layoutWidth = layoutWidth();
+        int layoutHeight = layoutHeight();
+        float[] l = layout(layoutWidth, layoutHeight);
         float visualScale = getVisualScale(width, height);
-        float guiX = width * 0.5f + (l[0] + l[4] + 12f - width * 0.5f) * visualScale;
-        float guiY = height * 0.5f + (l[1] + 12f - height * 0.5f) * visualScale;
+        float guiX = width * 0.5f + (l[0] + l[4] + 12f - layoutWidth * 0.5f) * visualScale;
+        float guiY = height * 0.5f + (l[1] + 12f - layoutHeight * 0.5f) * visualScale;
         diagnosticSampleX = Math.max(0, Math.min(window.getWidth() - 1, Math.round(guiX * (float) window.getGuiScale())));
         diagnosticSampleY = Math.max(0, Math.min(window.getHeight() - 1, window.getHeight() - 1 - Math.round(guiY * (float) window.getGuiScale())));
         diagnosticMainColor = readFramebufferColor(framebufferId, diagnosticSampleX, diagnosticSampleY);
@@ -243,13 +257,11 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     private float toLayoutX(double x, int width, float scale) {
-        float cx = width / 2f;
-        return cx + ((float) x - cx) / scale;
+        return layoutWidth() * 0.5f + ((float) x - width * 0.5f) / scale;
     }
 
     private float toLayoutY(double y, int height, float scale) {
-        float cy = height / 2f;
-        return cy + ((float) y - cy) / scale;
+        return layoutHeight() * 0.5f + ((float) y - height * 0.5f) / scale;
     }
 
     private static float lerp(float a, float b, float t) {
@@ -357,7 +369,7 @@ public class NewSettingsScreen extends SkiaScreen {
         float visualScale = getVisualScale(this.width, this.height);
         float mx = toLayoutX(mouseX, this.width, visualScale);
         float my = toLayoutY(mouseY, this.height, visualScale);
-        float[] l = layout(this.width, this.height);
+        float[] l = layout(layoutWidth(), layoutHeight());
         float cardX = l[0];
         float tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11];
@@ -392,7 +404,7 @@ public class NewSettingsScreen extends SkiaScreen {
         if (resetHoverAlpha > 0.01f || resetHovered) return true;
         if (searchFocused || searchFocusAlpha > 0.01f || Math.abs(searchTextOffset) > 0.01f) return true;
         if (indicatorY < 0f) return true;
-        float[] l = layout(this.width, this.height);
+        float[] l = layout(layoutWidth(), layoutHeight());
         float targetIndicatorY = l[5] + selectedTab * (l[6] + l[7]);
         if (Math.abs(indicatorY - targetIndicatorY) > 0.35f) return true;
         for (float alpha : tabHoverAlpha) if (alpha > 0.01f && alpha < 0.99f) return true;
@@ -421,7 +433,9 @@ public class NewSettingsScreen extends SkiaScreen {
         float visualScale = getUiScale(width, height) * (0.9f + 0.1f * animT);
         float layoutMouseX = toLayoutX(mouseX, width, visualScale);
         float layoutMouseY = toLayoutY(mouseY, height, visualScale);
-        float[] l = layout(width, height);
+        int layoutWidth = layoutWidth();
+        int layoutHeight = layoutHeight();
+        float[] l = layout(layoutWidth, layoutHeight);
         BasePage currentPage = activePage();
         updateScrollCache(currentPage, l[17]);
         targetScrollOffset = Math.min(targetScrollOffset, cachedScrollMax);
@@ -473,7 +487,7 @@ public class NewSettingsScreen extends SkiaScreen {
         canvas.save();
         canvas.translate(cx, cy);
         canvas.scale(visualScale, visualScale);
-        canvas.translate(-cx, -cy);
+        canvas.translate(-layoutWidth * 0.5f, -layoutHeight * 0.5f);
 
         cardPaint.setColor(withAlpha(0xF5F5F7, alpha));
         canvas.drawRRect(RRect.makeXYWH(cardX, cardY, cardW, cardH, 16f), cardPaint);
@@ -769,7 +783,7 @@ public class NewSettingsScreen extends SkiaScreen {
         float visualScale = getVisualScale(this.width, this.height);
         float mx = toLayoutX(event.x(), this.width, visualScale);
         float my = toLayoutY(event.y(), this.height, visualScale);
-        float[] l = layout(this.width, this.height);
+        float[] l = layout(layoutWidth(), layoutHeight());
         float cardX = l[0];
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11];
@@ -858,7 +872,7 @@ public class NewSettingsScreen extends SkiaScreen {
         if (draggingScrollbar) {
             float visualScale = getVisualScale(this.width, this.height);
             float my = toLayoutY(event.y(), this.height, visualScale);
-            float[] l = layout(this.width, this.height);
+            float[] l = layout(layoutWidth(), layoutHeight());
             BasePage page = activePage();
             setScrollFromScrollbar(page, my, l[15], l[17]);
             contentScrollOffset = targetScrollOffset;
@@ -869,7 +883,7 @@ public class NewSettingsScreen extends SkiaScreen {
             float visualScale = getVisualScale(this.width, this.height);
             float mx = toLayoutX(event.x(), this.width, visualScale);
             float my = toLayoutY(event.y(), this.height, visualScale);
-            float[] l = layout(this.width, this.height);
+            float[] l = layout(layoutWidth(), layoutHeight());
             float contentX = l[14], contentY = l[15], contentW = l[16];
             float moduleStartY = contentY + 54f;
             activePage().onDrag(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset);
@@ -893,7 +907,7 @@ public class NewSettingsScreen extends SkiaScreen {
         float visualScale = getVisualScale(this.width, this.height);
         float layoutMx = toLayoutX(mx, this.width, visualScale);
         float layoutMy = toLayoutY(my, this.height, visualScale);
-        float[] l = layout(this.width, this.height);
+        float[] l = layout(layoutWidth(), layoutHeight());
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
 
         if (layoutMx >= contentX && layoutMx <= contentX + contentW && layoutMy >= contentY && layoutMy <= contentY + contentH) {
