@@ -1,22 +1,23 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.ServerTranslationContents;
+import com.pvp_utils.client.TranslationKeyGuard;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AnvilScreen;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.AnvilMenu;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(AnvilScreen.class)
 public class AnvilScreenMixin {
-    @Inject(method = "slotChanged", at = @At("HEAD"))
-    private void pvp_utils$blockItemNameTranslationLookup(AbstractContainerMenu menu, int slot, ItemStack stack, CallbackInfo ci) {
-        if (Config.modifyTranslationKeys && slot == AnvilMenu.INPUT_SLOT && !stack.isEmpty()) {
-            ServerTranslationContents.markComponent(stack.getHoverName());
-        }
+    @Redirect(
+            method = "slotChanged",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/network/chat/Component;getString()Ljava/lang/String;")
+    )
+    private String pvp_utils$useSafeItemName(Component component) {
+        return Config.modifyTranslationKeys && Minecraft.getInstance().getCurrentServer() != null
+                ? TranslationKeyGuard.getSafeText(component)
+                : component.getString();
     }
 }
