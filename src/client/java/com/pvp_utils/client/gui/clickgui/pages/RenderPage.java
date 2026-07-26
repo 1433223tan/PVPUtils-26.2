@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.skin.SkinManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import net.minecraft.client.Minecraft;
@@ -10,6 +11,25 @@ import java.util.List;
 
 public class RenderPage extends BasePage {
     public RenderPage() {
+        SettingModule skinModule = new SettingModule("破解SunWorld皮肤", "仅在 mcbi.top 服务器内可用",
+                new SettingToggle(SkinManager::isDisplayEnabled, value -> {
+                    Config.mcbiSkinDisplay = value && SkinManager.isAvailable();
+                    Config.save();
+                })).visibleWhen(SkinManager::isAvailable);
+        addSkinOption(skinModule, SkinManager.NETHERITE_SWORD, "下界合金剑皮肤");
+        addSkinOption(skinModule, SkinManager.NETHERITE_AXE, "下界合金斧皮肤");
+        addSkinOption(skinModule, SkinManager.DIAMOND_SWORD, "钻石剑皮肤");
+        addSkinOption(skinModule, SkinManager.ELYTRA, "鞘翅皮肤");
+        addSkinOption(skinModule, SkinManager.FISHING_ROD, "钓鱼竿皮肤");
+        addSkinOption(skinModule, SkinManager.SHIELD, "盾牌皮肤");
+        addSkinOption(skinModule, SkinManager.COD, "鳕鱼皮肤");
+        addSkinOption(skinModule, SkinManager.ARROW, "箭矢皮肤");
+        addSkinOption(skinModule, SkinManager.PAPER, "纸张皮肤");
+        addSkinOption(skinModule, SkinManager.SHEARS, "剪刀皮肤");
+        addSkinOption(skinModule, SkinManager.HORSE_ARMOR, "马铠皮肤");
+        addSkinOption(skinModule, SkinManager.COSMETIC, "饰品显示");
+        modules.add(skinModule);
+
         modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("打开 HUD 位置编辑器，悬浮控件后可使用滚轮缩放大小", "Open the HUD editor. Hover an element and use the mouse wheel to resize it"),
                 new SettingToggle(() -> false, v -> Minecraft.getInstance().setScreen(new ChatScreen("", false))))
                 .addSub(UiText.t("在聊天框中快速启用", "Quick Enable in Chat"), UiText.t("打开聊天框时自动启用 HUD 拖动编辑", "Automatically enable HUD drag editing when opening chat"),
@@ -333,6 +353,21 @@ public class RenderPage extends BasePage {
 
     @Override public String getTitle() { return UiText.t("视觉设置", "Render Settings"); }
     @Override public String getSubtitle() { return UiText.t("调整视觉与动画效果", "Adjust visuals and animations"); }
+
+    private static void addSkinOption(SettingModule module, String type, String title) {
+        module.addSub(title, "", new SettingToggle(
+                        () -> SkinManager.isActive(type),
+                        value -> SkinManager.setActive(type, value)))
+                .addSubWhen(
+                        () -> SkinManager.isActive(type),
+                        "皮肤名称",
+                        "",
+                        new SettingCycle(
+                                SkinManager.names(type),
+                                () -> SkinManager.selection(type),
+                                index -> SkinManager.setSelection(type, index)
+                        ));
+    }
 
     private static int clampColor(Double value) {
         return Math.max(0, Math.min(255, value.intValue()));
