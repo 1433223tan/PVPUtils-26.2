@@ -83,6 +83,8 @@ public class Config {
     public static boolean itemUseStatus = false;
     public static boolean itemPhysics = false;
     public static boolean item2DRender = false;
+    public static boolean mcbiSkinDisplay = false;
+    public static String mcbiSkinModes = "";
     public static float itemPhysicsRotationSpeed = 1.0f;
     public static HudTheme hudTheme = HudTheme.LIGHT;
     public static float skiaBlurStrength = 1.0f;
