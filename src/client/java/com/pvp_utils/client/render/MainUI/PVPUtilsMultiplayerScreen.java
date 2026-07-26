@@ -155,8 +155,9 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         if (embeddedBack == null || minecraft.screen == this) {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
-        this.mouseX = MainUiScale.pageX(mouseX, width);
-        this.mouseY = MainUiScale.pageY(mouseY, height);
+        float layoutScale = layoutScale();
+        this.mouseX = MainUiScale.pageX(mouseX, width, layoutScale);
+        this.mouseY = MainUiScale.pageY(mouseY, height, layoutScale);
         scroll += (targetScroll - scroll) * 0.20f;
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null) {
@@ -187,22 +188,23 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         Canvas canvas = glBackend.begin(mainFramebufferId());
         if (canvas == null) return;
         try {
+            float layoutScale = layoutScale();
             float x = cardX();
             float y = cardY();
             float w = cardW();
             float h = cardH();
             if (!closingToMain) {
                 SkiaBlurRenderer.getInstance().render(canvas, glBackend.getContext(), minecraft, mainFramebufferId(),
-                        MainUiScale.pageScreenX(x, width),
-                        MainUiScale.pageScreenY(y, height),
-                        MainUiScale.pageScreenSize(w),
-                        MainUiScale.pageScreenSize(h),
-                        MainUiScale.pageScreenSize(20f),
+                        MainUiScale.pageScreenX(x, width, layoutScale),
+                        MainUiScale.pageScreenY(y, height, layoutScale),
+                        MainUiScale.pageScreenSize(w, layoutScale),
+                        MainUiScale.pageScreenSize(h, layoutScale),
+                        MainUiScale.pageScreenSize(20f, layoutScale),
                         0x12000000,
                         0.95f);
             }
             canvas.save();
-            MainUiScale.applyPage(canvas, width, height);
+            MainUiScale.applyPage(canvas, width, height, layoutScale);
             draw(canvas);
             canvas.restore();
         } finally {
@@ -312,7 +314,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        event = MainUiScale.pageEvent(event, width, height);
+        event = MainUiScale.pageEvent(event, width, height, layoutScale());
         if (event.button() != 0) return true;
         float x = cardX();
         float y = cardY() + cardH() + 12f;
@@ -574,5 +576,15 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
 
     private int layoutHeight() {
         return MainUiScale.pageHeight();
+    }
+
+    private float layoutScale() {
+        float x = cardX();
+        return MainUiScale.pageScale(
+                x,
+                20f,
+                x + cardW(),
+                cardY() + cardH() + 44f
+        );
     }
 }

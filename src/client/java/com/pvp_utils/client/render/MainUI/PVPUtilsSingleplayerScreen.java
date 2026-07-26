@@ -113,7 +113,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         float x = cardX() + 10f;
         float w = cardW() - 20f;
         float gap = 5f;
-        float y1 = Math.min(cardY() + cardH() + 10f, layoutHeight() - 68f);
+        float y1 = cardY() + cardH() + 10f;
         float y2 = y1 + 36f;
         float w1 = (w - gap * 2f) / 3f;
         float w2 = (w - gap * 2f) / 3f;
@@ -172,8 +172,9 @@ public class PVPUtilsSingleplayerScreen extends Screen {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
         scroll += (targetScroll - scroll) * 0.24f;
-        pendingMouseX = MainUiScale.pageX(mouseX, width);
-        pendingMouseY = MainUiScale.pageY(mouseY, height);
+        float layoutScale = layoutScale();
+        pendingMouseX = MainUiScale.pageX(mouseX, width, layoutScale);
+        pendingMouseY = MainUiScale.pageY(mouseY, height, layoutScale);
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null) {
             if (embeddedBack != null) {
@@ -211,23 +212,24 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         Canvas canvas = glBackend.begin(mainFramebufferId());
         if (canvas == null) return;
         try {
+            float layoutScale = layoutScale();
             if (!closingToMain) {
                 SkiaBlurRenderer.getInstance().render(
                         canvas,
                         glBackend.getContext(),
                         Minecraft.getInstance(),
                         mainFramebufferId(),
-                        MainUiScale.pageScreenX(cardX(), width),
-                        MainUiScale.pageScreenY(cardY(), height),
-                        MainUiScale.pageScreenSize(cardW()),
-                        MainUiScale.pageScreenSize(cardH()),
-                        MainUiScale.pageScreenSize(18f),
+                        MainUiScale.pageScreenX(cardX(), width, layoutScale),
+                        MainUiScale.pageScreenY(cardY(), height, layoutScale),
+                        MainUiScale.pageScreenSize(cardW(), layoutScale),
+                        MainUiScale.pageScreenSize(cardH(), layoutScale),
+                        MainUiScale.pageScreenSize(18f, layoutScale),
                         0x12000000,
                         blurStrength()
                 );
             }
             canvas.save();
-            MainUiScale.applyPage(canvas, width, height);
+            MainUiScale.applyPage(canvas, width, height, layoutScale);
             draw(canvas);
             canvas.restore();
         } finally {
@@ -385,7 +387,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        event = MainUiScale.pageEvent(event, width, height);
+        event = MainUiScale.pageEvent(event, width, height, layoutScale());
         if (closingToMain) return true;
         for (ActionButton button : buttons) {
             if (button.contains((float) event.x(), (float) event.y())) {
@@ -555,6 +557,16 @@ public class PVPUtilsSingleplayerScreen extends Screen {
 
     private int layoutHeight() {
         return MainUiScale.pageHeight();
+    }
+
+    private float layoutScale() {
+        float x = cardX();
+        return MainUiScale.pageScale(
+                x,
+                18f,
+                x + cardW(),
+                cardY() + cardH() + 76f
+        );
     }
 
     private float ease(float v) {
