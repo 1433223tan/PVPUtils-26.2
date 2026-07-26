@@ -53,6 +53,11 @@ public class PVPUtilsMainUI extends Screen {
     private static final long ENTRY_FADE_IN_MS = 850L;
     private static final float SETTINGS_SIZE = 36f;
     private static final float SETTINGS_MARGIN = 24f;
+    private static final float MAIN_LAYOUT_BASE_SCALE = 0.80f;
+    private static final float MAIN_LAYOUT_BASE_GUI_SCALE = 2f;
+    private static final float MAIN_LAYOUT_MARGIN_PIXELS = 48f;
+    private static final float MAIN_LAYOUT_BASE_WIDTH = 246f;
+    private static final float MAIN_LAYOUT_BASE_HEIGHT = 360f;
     private static final Identifier BACKGROUND_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_custom_background");
 
     private MainUIShader shader;
@@ -182,7 +187,11 @@ public class PVPUtilsMainUI extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         if (renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
-        updateSettingsPanel(mouseX, mouseY);
+        float layoutScale = mainLayoutScale();
+        updateSettingsPanel(
+                MainUiScale.topRightX(mouseX, this.width, this.height, layoutScale),
+                MainUiScale.topRightY(mouseY, this.width, this.height, layoutScale)
+        );
         if (returnTransition && returnTransitionProgress() >= 1f) {
             returnTransition = false;
             returnTransitionStartMs = 0L;
@@ -234,7 +243,10 @@ public class PVPUtilsMainUI extends Screen {
         if (returnTransition || singleplayerTransitioning) {
             return true;
         }
-        if (isInsideSettings((float) event.x(), (float) event.y())) {
+        float layoutScale = mainLayoutScale();
+        float settingsMouseX = MainUiScale.topRightX((int) event.x(), this.width, this.height, layoutScale);
+        float settingsMouseY = MainUiScale.topRightY((int) event.y(), this.width, this.height, layoutScale);
+        if (isInsideSettings(settingsMouseX, settingsMouseY)) {
             if (event.button() == 0) {
                 settingsOpen = true;
                 playClickSound();
@@ -243,7 +255,7 @@ public class PVPUtilsMainUI extends Screen {
             return true;
         }
         if (settingsOpen && event.button() == 0) {
-            if (isInsideBackgroundModeCustom((float) event.x(), (float) event.y())) {
+            if (isInsideBackgroundModeCustom(settingsMouseX, settingsMouseY)) {
                 setBackgroundMode(Config.MainUIBackgroundMode.IMAGE);
                 Config.save();
                 refreshThemeFromBackground();
@@ -251,7 +263,7 @@ public class PVPUtilsMainUI extends Screen {
                 invalidateTextTexture();
                 return true;
             }
-            if (isInsideBackgroundModeBuiltin((float) event.x(), (float) event.y())) {
+            if (isInsideBackgroundModeBuiltin(settingsMouseX, settingsMouseY)) {
                 setBackgroundMode(Config.MainUIBackgroundMode.GLSL);
                 Config.save();
                 lightSettingsTheme = true;
@@ -259,7 +271,7 @@ public class PVPUtilsMainUI extends Screen {
                 invalidateTextTexture();
                 return true;
             }
-            if (isGlslBackground() && isInsideGlslModeRandom((float) event.x(), (float) event.y())) {
+            if (isGlslBackground() && isInsideGlslModeRandom(settingsMouseX, settingsMouseY)) {
                 Config.mainUIGlslMode = Config.MainUIGlslMode.RANDOM;
                 Config.save();
                 refreshShader();
@@ -267,7 +279,7 @@ public class PVPUtilsMainUI extends Screen {
                 invalidateTextTexture();
                 return true;
             }
-            if (isGlslBackground() && isInsideGlslModeFixed((float) event.x(), (float) event.y())) {
+            if (isGlslBackground() && isInsideGlslModeFixed(settingsMouseX, settingsMouseY)) {
                 Config.mainUIGlslMode = Config.MainUIGlslMode.FIXED;
                 Config.mainUIGlslShader = MainUIShader.normalizeShader(shader == null ? Config.mainUIGlslShader : shader.fragmentPath());
                 Config.save();
@@ -276,13 +288,13 @@ public class PVPUtilsMainUI extends Screen {
                 invalidateTextTexture();
                 return true;
             }
-            if (isGlslBackground() && Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED && isInsideGlslShaderSelect((float) event.x(), (float) event.y())) {
+            if (isGlslBackground() && Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED && isInsideGlslShaderSelect(settingsMouseX, settingsMouseY)) {
                 cycleGlslShader();
                 playClickSound();
                 invalidateTextTexture();
                 return true;
             }
-            if (isInsideBackgroundModeVideo((float) event.x(), (float) event.y())) {
+            if (isInsideBackgroundModeVideo(settingsMouseX, settingsMouseY)) {
                 setBackgroundMode(Config.MainUIBackgroundMode.VIDEO);
                 ensureSelectedVideo();
                 Config.save();
@@ -290,25 +302,25 @@ public class PVPUtilsMainUI extends Screen {
                 invalidateTextTexture();
                 return true;
             }
-            if ((isImageBackground() || isVideoBackground()) && isInsideOpenBackgroundFolder((float) event.x(), (float) event.y())) {
+            if ((isImageBackground() || isVideoBackground()) && isInsideOpenBackgroundFolder(settingsMouseX, settingsMouseY)) {
                 MainUIBackgrounds.openFolder();
                 playClickSound();
                 invalidateTextTexture();
                 return true;
             }
-            if (isImageBackground() && isInsideBackgroundImageSelect((float) event.x(), (float) event.y())) {
+            if (isImageBackground() && isInsideBackgroundImageSelect(settingsMouseX, settingsMouseY)) {
                 cycleBackgroundImage();
                 playClickSound();
                 invalidateTextTexture();
                 return true;
             }
-            if (isVideoBackground() && isInsideBackgroundVideoSelect((float) event.x(), (float) event.y())) {
+            if (isVideoBackground() && isInsideBackgroundVideoSelect(settingsMouseX, settingsMouseY)) {
                 cycleBackgroundVideo();
                 playClickSound();
                 invalidateTextTexture();
                 return true;
             }
-            if (isImageBackground() && isInsideMouseEffectToggle((float) event.x(), (float) event.y())) {
+            if (isImageBackground() && isInsideMouseEffectToggle(settingsMouseX, settingsMouseY)) {
                 Config.mainUIMouseEffect = !Config.mainUIMouseEffect;
                 Config.save();
                 playClickSound();
@@ -367,9 +379,10 @@ public class PVPUtilsMainUI extends Screen {
         float cardY = animatedMenuCardY();
         float buttonH = compactButtonHeight();
         float gap = compactButtonGap();
-        float startX = (this.width - cardW) * 0.5f + 16f;
-        float startY = cardY + 18f;
-        float buttonW = cardW - 32f;
+        float scale = mainLayoutScale();
+        float startX = (this.width - cardW) * 0.5f + 16f * scale;
+        float startY = cardY + 18f * scale;
+        float buttonW = cardW - 32f * scale;
         for (int i = 0; i < buttons.size(); i++) {
             buttons.get(i).setBounds(startX, startY + i * (buttonH + gap), buttonW, buttonH);
         }
@@ -377,7 +390,7 @@ public class PVPUtilsMainUI extends Screen {
         float titleW = FontRenderer.measureTextWidth("PVPUtils", titleSize);
         float titleH = FontRenderer.getLineHeight(titleSize);
         float titleX = (this.width - titleW) * 0.5f;
-        float titleY = compactCardY() - titleH - 32f;
+        float titleY = compactCardY() - titleH - 32f * scale;
         titleHitBox = new TitleHitBox(titleX, titleY, titleW, titleH);
         updateTextRegion();
         invalidateTextTexture();
@@ -401,28 +414,39 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private float titleSize() {
-        float scale = Math.max(0.74f, Math.min(1.0f, (this.width * 2f + this.height) / 2600f));
-        return 32f * scale;
+        return 32f * mainLayoutScale();
     }
 
     private float compactCardWidth() {
-        return Math.max(210f, Math.min(246f, this.width * 0.36f));
+        return MAIN_LAYOUT_BASE_WIDTH * mainLayoutScale();
     }
 
     private float compactButtonHeight() {
-        return 34f;
+        return 34f * mainLayoutScale();
     }
 
     private float compactButtonGap() {
-        return 2f;
+        return 2f * mainLayoutScale();
     }
 
     private float compactCardHeight() {
-        return 36f + buttons.size() * compactButtonHeight() + Math.max(0, buttons.size() - 1) * compactButtonGap();
+        return 36f * mainLayoutScale() + buttons.size() * compactButtonHeight() + Math.max(0, buttons.size() - 1) * compactButtonGap();
     }
 
     private float compactCardY() {
-        return this.height * 0.5f - compactCardHeight() * 0.5f + 36f;
+        return this.height * 0.5f - compactCardHeight() * 0.5f + 36f * mainLayoutScale();
+    }
+
+    private float mainLayoutScale() {
+        if (this.minecraft == null) return MAIN_LAYOUT_BASE_SCALE;
+        var window = this.minecraft.getWindow();
+        float guiScale = Math.max(1f, (float) window.getGuiScale());
+        float availableW = Math.max(1f, window.getWidth() - MAIN_LAYOUT_MARGIN_PIXELS * 2f);
+        float availableH = Math.max(1f, window.getHeight() - MAIN_LAYOUT_MARGIN_PIXELS * 2f);
+        float baselineWidth = MAIN_LAYOUT_BASE_WIDTH * MAIN_LAYOUT_BASE_GUI_SCALE * MAIN_LAYOUT_BASE_SCALE;
+        float baselineHeight = MAIN_LAYOUT_BASE_HEIGHT * MAIN_LAYOUT_BASE_GUI_SCALE * MAIN_LAYOUT_BASE_SCALE;
+        float fit = Math.min(1f, Math.min(availableW / baselineWidth, availableH / baselineHeight));
+        return Math.max(0.35f, MAIN_LAYOUT_BASE_SCALE * MAIN_LAYOUT_BASE_GUI_SCALE / guiScale * fit);
     }
 
     private void renderText(GuiGraphics graphics, float alpha) {
@@ -482,8 +506,11 @@ public class PVPUtilsMainUI extends Screen {
             int titleAlpha = Math.round(255f * Math.max(0f, Math.min(1f, alpha * titleFade)));
             FontRenderer.drawText(c, "PVPUtils", titleHitBox.x, titleHitBox.y + titleHitBox.h * 0.82f + titleMove, titleSize(), (titleAlpha << 24) | 0xFFFFFF);
             if (controlsFade > 0.08f) {
+                c.save();
+                MainUiScale.applyTopRight(c, this.width, this.height, mainLayoutScale());
                 renderSettingsPlaceholder(c);
                 renderSettingsPanel(c);
+                c.restore();
             }
             if (controlsFade > 0.001f && alpha > 0.001f) {
                 for (MenuButton button : buttons) {
@@ -491,7 +518,10 @@ public class PVPUtilsMainUI extends Screen {
                 }
             }
             if (controlsFade > 0.08f) {
+                c.save();
+                MainUiScale.applyBottomLeft(c, this.width, this.height, mainLayoutScale());
                 renderVersionText(c);
+                c.restore();
             }
         } finally {
             glBackend.end();
@@ -500,18 +530,13 @@ public class PVPUtilsMainUI extends Screen {
 
     private void renderMainCardBlur(Canvas canvas) {
         float progress = returnTransition ? returnTransitionProgress() : singleplayerTransitionProgress();
-        float targetW = openingViaFabricPlus
-                ? Math.max(620f, Math.min(900f, this.width * 0.84f))
-                : Math.max(320f, Math.min(500f, this.width * 0.52f));
-        float targetH = openingViaFabricPlus
-                ? Math.max(370f, Math.min(this.height - 100f, this.height * 0.78f))
-                : Math.max(260f, Math.min(this.height - 154f, this.height * 0.72f));
+        TransitionCard target = transitionTarget();
         float t = returnTransition
                 ? 1f - easeOutCubic(progress)
                 : easeOutCubic(progress);
-        float cardW = compactCardWidth() + (targetW - compactCardWidth()) * t;
-        float cardH = compactCardHeight() + (targetH - compactCardHeight()) * t;
-        float cardY = compactCardY() + (76f - compactCardY()) * t;
+        float cardW = compactCardWidth() + (target.width - compactCardWidth()) * t;
+        float cardH = compactCardHeight() + (target.height - compactCardHeight()) * t;
+        float cardY = compactCardY() + (target.y - compactCardY()) * t;
         float angle = (returnTransition || singleplayerTransitioning)
                 ? easeInOutCubic(progress) * (float) Math.PI
                 : 0f;
@@ -527,7 +552,7 @@ public class PVPUtilsMainUI extends Screen {
                 cardY,
                 visibleW,
                 cardH,
-                18f,
+                18f * mainLayoutScale(),
                 0x12000000,
                 strength
         );
@@ -824,6 +849,8 @@ public class PVPUtilsMainUI extends Screen {
     private boolean openingMultiplayer;
     private boolean openingAltManager;
     private boolean openingViaFabricPlus;
+    private boolean returningMultiplayer;
+    private boolean returningFixedPage;
     private boolean preserveEmbeddedPages;
     private long singleplayerTransitionStartMs;
     private static final long SINGLEPLAYER_TRANSITION_MS = 520L;
@@ -839,6 +866,8 @@ public class PVPUtilsMainUI extends Screen {
         openingMultiplayer = false;
         openingAltManager = false;
         openingViaFabricPlus = false;
+        returningMultiplayer = false;
+        returningFixedPage = false;
     }
 
     private void startMultiplayerTransition() {
@@ -851,6 +880,8 @@ public class PVPUtilsMainUI extends Screen {
         openingMultiplayer = true;
         openingAltManager = false;
         openingViaFabricPlus = false;
+        returningMultiplayer = false;
+        returningFixedPage = false;
     }
 
     private void startAltManagerTransition() {
@@ -863,6 +894,8 @@ public class PVPUtilsMainUI extends Screen {
         openingMultiplayer = false;
         openingAltManager = true;
         openingViaFabricPlus = false;
+        returningMultiplayer = false;
+        returningFixedPage = false;
     }
 
     private void startViaFabricPlusTransition() {
@@ -875,6 +908,8 @@ public class PVPUtilsMainUI extends Screen {
         openingMultiplayer = false;
         openingAltManager = false;
         openingViaFabricPlus = true;
+        returningMultiplayer = false;
+        returningFixedPage = false;
     }
 
     private void updateSingleplayerTransition() {
@@ -941,6 +976,8 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private void beginEmbeddedReturn() {
+        returningMultiplayer = embeddedMultiplayer != null;
+        returningFixedPage = embeddedSingleplayer != null || embeddedMultiplayer != null;
         disposeEmbeddedPages();
         returnTransition = true;
         returnTransitionStartMs = animationNowNanos();
@@ -1290,17 +1327,11 @@ public class PVPUtilsMainUI extends Screen {
                 : easeOutCubic(singleplayerTransitionProgress());
         float baseW = compactCardWidth();
         float baseH = compactCardHeight();
-        float targetW = openingViaFabricPlus
-                ? Math.max(620f, Math.min(900f, this.width * 0.84f))
-                : Math.max(320f, Math.min(500f, this.width * 0.52f));
-        float targetH = openingViaFabricPlus
-                ? Math.max(370f, Math.min(this.height - 100f, this.height * 0.78f))
-                : Math.max(260f, Math.min(this.height - 154f, this.height * 0.72f));
-        float cardW = baseW + (targetW - baseW) * t;
-        float cardH = baseH + (targetH - baseH) * t;
+        TransitionCard target = transitionTarget();
+        float cardW = baseW + (target.width - baseW) * t;
+        float cardH = baseH + (target.height - baseH) * t;
         float cardCx = this.width * 0.5f;
-        float targetY = 76f;
-        float cardY = compactCardY() + (targetY - compactCardY()) * t;
+        float cardY = compactCardY() + (target.y - compactCardY()) * t;
         float transitionProgress = returnTransition
                 ? returnTransitionProgress()
                 : singleplayerTransitionProgress();
@@ -1319,11 +1350,46 @@ public class PVPUtilsMainUI extends Screen {
         }
     }
 
+    private TransitionCard transitionTarget() {
+        if (openingViaFabricPlus) {
+            return new TransitionCard(
+                    Math.max(620f, Math.min(900f, this.width * 0.84f)),
+                    Math.max(370f, Math.min(this.height - 100f, this.height * 0.78f)),
+                    76f
+            );
+        }
+        boolean multiplayer = openingMultiplayer || (returnTransition && returningMultiplayer);
+        boolean fixedPage = (!returnTransition && !openingAltManager) || (returnTransition && returningFixedPage);
+        int layoutWidth = fixedPage ? MainUiScale.pageWidth() : this.width;
+        int layoutHeight = fixedPage ? MainUiScale.pageHeight() : this.height;
+        float rawWidth = Math.max(320f, Math.min(500f, layoutWidth * 0.52f));
+        float rawHeight = multiplayer
+                ? Math.max(280f, Math.min(layoutHeight - 150f, layoutHeight * 0.70f))
+                : Math.max(260f, Math.min(layoutHeight - 154f, layoutHeight * 0.72f));
+        float rawY = multiplayer ? 72f : 76f;
+        if (fixedPage) {
+            float scale = MainUiScale.pageScale();
+            return new TransitionCard(
+                    rawWidth * scale,
+                    rawHeight * scale,
+                    this.height * 0.5f + (rawY - layoutHeight * 0.5f) * scale
+            );
+        }
+        return new TransitionCard(
+                rawWidth,
+                rawHeight,
+                rawY
+        );
+    }
+
+    private record TransitionCard(float width, float height, float y) {
+    }
+
     private void drawBookPageCard(Canvas canvas, float cx, float y, float w, float h, float angle, Paint paint) {
         float sin = (float) Math.sin(angle);
         float cos = (float) Math.cos(angle);
         if (Math.abs(sin) < 0.03f && cos > 0.99f) {
-            canvas.drawRRect(RRect.makeXYWH(cx - w * 0.5f, y, w, h, 18f), paint);
+            canvas.drawRRect(RRect.makeXYWH(cx - w * 0.5f, y, w, h, 18f * mainLayoutScale()), paint);
             return;
         }
         float scaleX = Math.copySign(Math.max(0.065f, Math.abs(cos)), cos);
@@ -1331,7 +1397,7 @@ public class PVPUtilsMainUI extends Screen {
         canvas.translate(cx, y + h * 0.5f);
         canvas.skew(sin * 0.10f, 0f);
         canvas.scale(scaleX, 1f);
-        canvas.drawRRect(RRect.makeXYWH(-w * 0.5f, -h * 0.5f, w, h, 18f), paint);
+        canvas.drawRRect(RRect.makeXYWH(-w * 0.5f, -h * 0.5f, w, h, 18f * mainLayoutScale()), paint);
         canvas.restore();
     }
 
@@ -1638,14 +1704,15 @@ public class PVPUtilsMainUI extends Screen {
                 bg.setColor((Math.round(drawAlpha * (0.07f + 0.15f * t) * (pressed ? 1.25f : 1f)) << 24) | 0xFFFFFF);
                 canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, 12f), bg);
             }
-            float iconSize = 18f;
-            float textSize = 15f;
+            float uiScale = mainLayoutScale();
+            float iconSize = 18f * uiScale;
+            float textSize = 15f * uiScale;
             int color = withAlpha(0xFFFFFFFF, drawAlpha);
-            float iconX = drawX + 22f;
+            float iconX = drawX + 22f * uiScale;
             float centerY = drawY + drawH * 0.5f;
             float iconH = FontRenderer.getLineHeight(iconSize, FontRenderer.MATERIAL_SYMBOLS);
             FontRenderer.drawText(canvas, icon, iconX, centerY + iconH * 0.35f, iconSize, color, FontRenderer.MATERIAL_SYMBOLS);
-            FontRenderer.drawText(canvas, text, drawX + 54f + t * 3f, centerY + FontRenderer.getLineHeight(textSize) * 0.36f, textSize, color);
+            FontRenderer.drawText(canvas, text, drawX + 54f * uiScale + t * 3f * uiScale, centerY + FontRenderer.getLineHeight(textSize) * 0.36f, textSize, color);
         }
     }
 

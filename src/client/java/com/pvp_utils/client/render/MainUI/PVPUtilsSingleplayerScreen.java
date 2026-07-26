@@ -113,7 +113,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         float x = cardX() + 10f;
         float w = cardW() - 20f;
         float gap = 5f;
-        float y1 = Math.min(cardY() + cardH() + 10f, this.height - 68f);
+        float y1 = Math.min(cardY() + cardH() + 10f, layoutHeight() - 68f);
         float y2 = y1 + 36f;
         float w1 = (w - gap * 2f) / 3f;
         float w2 = (w - gap * 2f) / 3f;
@@ -172,8 +172,8 @@ public class PVPUtilsSingleplayerScreen extends Screen {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
         scroll += (targetScroll - scroll) * 0.24f;
-        pendingMouseX = mouseX;
-        pendingMouseY = mouseY;
+        pendingMouseX = MainUiScale.pageX(mouseX, width);
+        pendingMouseY = MainUiScale.pageY(mouseY, height);
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null) {
             if (embeddedBack != null) {
@@ -217,16 +217,19 @@ public class PVPUtilsSingleplayerScreen extends Screen {
                         glBackend.getContext(),
                         Minecraft.getInstance(),
                         mainFramebufferId(),
-                        cardX(),
-                        cardY(),
-                        cardW(),
-                        cardH(),
-                        18f,
+                        MainUiScale.pageScreenX(cardX(), width),
+                        MainUiScale.pageScreenY(cardY(), height),
+                        MainUiScale.pageScreenSize(cardW()),
+                        MainUiScale.pageScreenSize(cardH()),
+                        MainUiScale.pageScreenSize(18f),
                         0x12000000,
                         blurStrength()
                 );
             }
+            canvas.save();
+            MainUiScale.applyPage(canvas, width, height);
             draw(canvas);
+            canvas.restore();
         } finally {
             glBackend.end();
             pendingFrame = false;
@@ -239,13 +242,13 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         float t = 1f;
         float cardW = cardW();
         float cardH = cardH();
-        float compactW = Math.max(210f, Math.min(246f, width * 0.36f));
+        float compactW = Math.max(210f, Math.min(246f, layoutWidth() * 0.36f));
         float compactH = 36f + 6f * 34f + 5f * 2f;
         float angle = 0f;
         float drawW = compactW + (cardW - compactW) * t;
         float drawH = compactH + (cardH - compactH) * t;
-        float cx = width * 0.5f;
-        float cy = height * 0.5f;
+        float cx = layoutWidth() * 0.5f;
+        float cy = layoutHeight() * 0.5f;
         float y = cardY();
         try (Paint card = new Paint(); Paint stroke = new Paint()) {
             card.setAntiAlias(true);
@@ -263,7 +266,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         int alpha = Math.round(255f * contentFade);
         float titleSize = 30f;
         String title = "Single player";
-        FontRenderer.drawText(canvas, title, (width - FontRenderer.measureTextWidth(title, titleSize)) * 0.5f, 44f, titleSize, (alpha << 24) | 0xFFFFFF);
+        FontRenderer.drawText(canvas, title, (layoutWidth() - FontRenderer.measureTextWidth(title, titleSize)) * 0.5f, 44f, titleSize, (alpha << 24) | 0xFFFFFF);
         drawWorldList(canvas, alpha);
         float buttonsAlpha = contentFade;
         for (ActionButton button : buttons) {
@@ -382,6 +385,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
+        event = MainUiScale.pageEvent(event, width, height);
         if (closingToMain) return true;
         for (ActionButton button : buttons) {
             if (button.contains((float) event.x(), (float) event.y())) {
@@ -530,19 +534,27 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     }
 
     private float cardW() {
-        return Math.max(320f, Math.min(500f, width * 0.52f));
+        return Math.max(320f, Math.min(500f, layoutWidth() * 0.52f));
     }
 
     private float cardH() {
-        return Math.max(260f, Math.min(height - 154f, height * 0.72f));
+        return Math.max(260f, Math.min(layoutHeight() - 154f, layoutHeight() * 0.72f));
     }
 
     private float cardX() {
-        return (width - cardW()) * 0.5f;
+        return (layoutWidth() - cardW()) * 0.5f;
     }
 
     private float cardY() {
         return 76f;
+    }
+
+    private int layoutWidth() {
+        return MainUiScale.pageWidth();
+    }
+
+    private int layoutHeight() {
+        return MainUiScale.pageHeight();
     }
 
     private float ease(float v) {
