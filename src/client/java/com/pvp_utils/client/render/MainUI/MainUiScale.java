@@ -15,18 +15,14 @@ public final class MainUiScale {
     }
 
     public static float pageScale(float minX, float minY, float maxX, float maxY) {
-        float centerX = pageWidth() * 0.5f;
-        float centerY = pageHeight() * 0.5f;
-        float availableX = Math.max(1f, centerX - 12f);
-        float availableY = Math.max(1f, centerY - 12f);
+        float availableWidth = Math.max(1f, pageWidth() - 24f);
+        float availableHeight = Math.max(1f, pageHeight() - 24f);
         float factor = 0.95f;
-        factor = Math.min(factor, availableX / Math.max(1f, centerX - minX));
-        factor = Math.min(factor, availableX / Math.max(1f, maxX - centerX));
-        factor = Math.min(factor, availableY / Math.max(1f, centerY - minY));
-        factor = Math.min(factor, availableY / Math.max(1f, maxY - centerY));
+        factor = Math.min(factor, availableWidth / Math.max(1f, maxX - minX));
+        factor = Math.min(factor, availableHeight / Math.max(1f, maxY - minY));
         Minecraft minecraft = Minecraft.getInstance();
         float guiScale = minecraft == null ? 2f : Math.max(1f, (float) minecraft.getWindow().getGuiScale());
-        return Math.max(0.35f, factor * 2f / guiScale);
+        return Math.max(0.05f, factor * 2f / guiScale);
     }
 
     public static int pageWidth() {
@@ -44,9 +40,13 @@ public final class MainUiScale {
     }
 
     public static void applyPage(Canvas canvas, int guiWidth, int guiHeight, float scale) {
+        applyPage(canvas, guiWidth, guiHeight, scale, pageWidth() * 0.5f, pageHeight() * 0.5f);
+    }
+
+    public static void applyPage(Canvas canvas, int guiWidth, int guiHeight, float scale, float centerX, float centerY) {
         canvas.translate(guiWidth * 0.5f, guiHeight * 0.5f);
         canvas.scale(scale, scale);
-        canvas.translate(-pageWidth() * 0.5f, -pageHeight() * 0.5f);
+        canvas.translate(-centerX, -centerY);
     }
 
     public static int pageX(int mouseX, int guiWidth) {
@@ -58,11 +58,19 @@ public final class MainUiScale {
     }
 
     public static int pageX(int mouseX, int guiWidth, float scale) {
-        return Math.round(pageWidth() * 0.5f + (mouseX - guiWidth * 0.5f) / scale);
+        return pageX(mouseX, guiWidth, scale, pageWidth() * 0.5f);
     }
 
     public static int pageY(int mouseY, int guiHeight, float scale) {
-        return Math.round(pageHeight() * 0.5f + (mouseY - guiHeight * 0.5f) / scale);
+        return pageY(mouseY, guiHeight, scale, pageHeight() * 0.5f);
+    }
+
+    public static int pageX(int mouseX, int guiWidth, float scale, float centerX) {
+        return Math.round(centerX + (mouseX - guiWidth * 0.5f) / scale);
+    }
+
+    public static int pageY(int mouseY, int guiHeight, float scale, float centerY) {
+        return Math.round(centerY + (mouseY - guiHeight * 0.5f) / scale);
     }
 
     public static MouseButtonEvent pageEvent(MouseButtonEvent event, int guiWidth, int guiHeight) {
@@ -70,7 +78,11 @@ public final class MainUiScale {
     }
 
     public static MouseButtonEvent pageEvent(MouseButtonEvent event, int guiWidth, int guiHeight, float scale) {
-        return new MouseButtonEvent(pageX((int) event.x(), guiWidth, scale), pageY((int) event.y(), guiHeight, scale), event.buttonInfo());
+        return pageEvent(event, guiWidth, guiHeight, scale, pageWidth() * 0.5f, pageHeight() * 0.5f);
+    }
+
+    public static MouseButtonEvent pageEvent(MouseButtonEvent event, int guiWidth, int guiHeight, float scale, float centerX, float centerY) {
+        return new MouseButtonEvent(pageX((int) event.x(), guiWidth, scale, centerX), pageY((int) event.y(), guiHeight, scale, centerY), event.buttonInfo());
     }
 
     public static float pageScreenX(float x, int guiWidth) {
@@ -86,11 +98,19 @@ public final class MainUiScale {
     }
 
     public static float pageScreenX(float x, int guiWidth, float scale) {
-        return guiWidth * 0.5f + (x - pageWidth() * 0.5f) * scale;
+        return pageScreenX(x, guiWidth, scale, pageWidth() * 0.5f);
     }
 
     public static float pageScreenY(float y, int guiHeight, float scale) {
-        return guiHeight * 0.5f + (y - pageHeight() * 0.5f) * scale;
+        return pageScreenY(y, guiHeight, scale, pageHeight() * 0.5f);
+    }
+
+    public static float pageScreenX(float x, int guiWidth, float scale, float centerX) {
+        return guiWidth * 0.5f + (x - centerX) * scale;
+    }
+
+    public static float pageScreenY(float y, int guiHeight, float scale, float centerY) {
+        return guiHeight * 0.5f + (y - centerY) * scale;
     }
 
     public static float pageScreenSize(float size, float scale) {

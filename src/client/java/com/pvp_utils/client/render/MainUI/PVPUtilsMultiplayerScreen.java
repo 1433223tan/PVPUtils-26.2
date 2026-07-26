@@ -156,8 +156,8 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
         float layoutScale = layoutScale();
-        this.mouseX = MainUiScale.pageX(mouseX, width, layoutScale);
-        this.mouseY = MainUiScale.pageY(mouseY, height, layoutScale);
+        this.mouseX = MainUiScale.pageX(mouseX, width, layoutScale, layoutCenterX());
+        this.mouseY = MainUiScale.pageY(mouseY, height, layoutScale, layoutCenterY());
         scroll += (targetScroll - scroll) * 0.20f;
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null) {
@@ -195,8 +195,8 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             float h = cardH();
             if (!closingToMain) {
                 SkiaBlurRenderer.getInstance().render(canvas, glBackend.getContext(), minecraft, mainFramebufferId(),
-                        MainUiScale.pageScreenX(x, width, layoutScale),
-                        MainUiScale.pageScreenY(y, height, layoutScale),
+                        MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()),
+                        MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()),
                         MainUiScale.pageScreenSize(w, layoutScale),
                         MainUiScale.pageScreenSize(h, layoutScale),
                         MainUiScale.pageScreenSize(20f, layoutScale),
@@ -204,7 +204,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
                         0.95f);
             }
             canvas.save();
-            MainUiScale.applyPage(canvas, width, height, layoutScale);
+            MainUiScale.applyPage(canvas, width, height, layoutScale, layoutCenterX(), layoutCenterY());
             draw(canvas);
             canvas.restore();
         } finally {
@@ -232,7 +232,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         String title = "Multiplayer";
         int alpha = Math.round(255f * contentAlpha);
         FontRenderer.drawText(canvas, title, layoutWidth() * .5f - FontRenderer.measureTextWidth(title, 30f) * .5f, 50f, 30f, (alpha << 24) | 0xFFFFFF);
-        drawServers(canvas, x + 16f, y + 16f, w - 32f, h - 82f, alpha);
+        drawServers(canvas, x + 16f, y + 16f, w - 32f, h - 40f, alpha);
         float buttonY = y + h + 12f;
         float buttonW = (w - 32f) / 5f;
         drawButton(canvas, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f, "Add", alpha);
@@ -258,7 +258,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     }
 
     private void drawServer(Canvas canvas, ServerData server, int index, float x, float y, float w, float h, int alpha) {
-        if (y + h < cardY() + 16f || y > cardY() + cardH() - 66f) return;
+        if (y + h < cardY() + 16f || y > cardY() + cardH() - 24f) return;
         boolean over = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
         float p = hover.get(index);
         p += ((over ? 1f : 0f) - p) * .16f;
@@ -314,7 +314,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        event = MainUiScale.pageEvent(event, width, height, layoutScale());
+        event = MainUiScale.pageEvent(event, width, height, layoutScale(), layoutCenterX(), layoutCenterY());
         if (event.button() != 0) return true;
         float x = cardX();
         float y = cardY() + cardH() + 12f;
@@ -384,7 +384,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         float x = cardX() + 16f;
         float y = cardY() + 16f;
         float w = cardW() - 32f;
-        float h = cardH() - 82f;
+        float h = cardH() - 40f;
         if (mx < x || mx > x + w || my < y || my > y + h) return -1;
         int index = (int) ((my - y + scroll) / 72f);
         float inside = (my - y + scroll) - index * 72f;
@@ -399,7 +399,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     }
 
     private void clampScroll() {
-        float max = Math.max(0f, servers.size() * 72f - (cardH() - 82f));
+        float max = Math.max(0f, servers.size() * 72f - (cardH() - 40f));
         targetScroll = Math.max(0f, Math.min(max, targetScroll));
         scroll = Math.max(0f, Math.min(max, scroll));
     }
@@ -586,5 +586,13 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
                 x + cardW(),
                 cardY() + cardH() + 44f
         );
+    }
+
+    private float layoutCenterX() {
+        return cardX() + cardW() * 0.5f;
+    }
+
+    private float layoutCenterY() {
+        return (20f + cardY() + cardH() + 44f) * 0.5f;
     }
 }

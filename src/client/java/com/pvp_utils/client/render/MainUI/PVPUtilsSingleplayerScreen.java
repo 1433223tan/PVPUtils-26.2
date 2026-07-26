@@ -173,8 +173,8 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         }
         scroll += (targetScroll - scroll) * 0.24f;
         float layoutScale = layoutScale();
-        pendingMouseX = MainUiScale.pageX(mouseX, width, layoutScale);
-        pendingMouseY = MainUiScale.pageY(mouseY, height, layoutScale);
+        pendingMouseX = MainUiScale.pageX(mouseX, width, layoutScale, layoutCenterX());
+        pendingMouseY = MainUiScale.pageY(mouseY, height, layoutScale, layoutCenterY());
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null) {
             if (embeddedBack != null) {
@@ -219,8 +219,8 @@ public class PVPUtilsSingleplayerScreen extends Screen {
                         glBackend.getContext(),
                         Minecraft.getInstance(),
                         mainFramebufferId(),
-                        MainUiScale.pageScreenX(cardX(), width, layoutScale),
-                        MainUiScale.pageScreenY(cardY(), height, layoutScale),
+                        MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()),
+                        MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()),
                         MainUiScale.pageScreenSize(cardW(), layoutScale),
                         MainUiScale.pageScreenSize(cardH(), layoutScale),
                         MainUiScale.pageScreenSize(18f, layoutScale),
@@ -229,7 +229,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
                 );
             }
             canvas.save();
-            MainUiScale.applyPage(canvas, width, height, layoutScale);
+            MainUiScale.applyPage(canvas, width, height, layoutScale, layoutCenterX(), layoutCenterY());
             draw(canvas);
             canvas.restore();
         } finally {
@@ -387,7 +387,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        event = MainUiScale.pageEvent(event, width, height, layoutScale());
+        event = MainUiScale.pageEvent(event, width, height, layoutScale(), layoutCenterX(), layoutCenterY());
         if (closingToMain) return true;
         for (ActionButton button : buttons) {
             if (button.contains((float) event.x(), (float) event.y())) {
@@ -567,6 +567,14 @@ public class PVPUtilsSingleplayerScreen extends Screen {
                 x + cardW(),
                 cardY() + cardH() + 76f
         );
+    }
+
+    private float layoutCenterX() {
+        return cardX() + cardW() * 0.5f;
+    }
+
+    private float layoutCenterY() {
+        return (18f + cardY() + cardH() + 76f) * 0.5f;
     }
 
     private float ease(float v) {

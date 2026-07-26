@@ -1369,16 +1369,19 @@ public class PVPUtilsMainUI extends Screen {
         float rawY = multiplayer ? 72f : 76f;
         if (fixedPage) {
             float rawX = (layoutWidth - rawWidth) * 0.5f;
+            float minY = multiplayer ? 20f : 18f;
+            float maxY = rawY + rawHeight + (multiplayer ? 44f : 76f);
             float scale = MainUiScale.pageScale(
                     rawX,
-                    multiplayer ? 20f : 18f,
+                    minY,
                     rawX + rawWidth,
-                    rawY + rawHeight + (multiplayer ? 44f : 76f)
+                    maxY
             );
+            float centerY = (minY + maxY) * 0.5f;
             return new TransitionCard(
                     rawWidth * scale,
                     rawHeight * scale,
-                    this.height * 0.5f + (rawY - layoutHeight * 0.5f) * scale
+                    this.height * 0.5f + (rawY - centerY) * scale
             );
         }
         return new TransitionCard(
