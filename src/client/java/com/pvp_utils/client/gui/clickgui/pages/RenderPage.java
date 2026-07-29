@@ -30,6 +30,13 @@ public class RenderPage extends BasePage {
         addSkinOption(skinModule, SkinManager.COSMETIC, "饰品显示");
         modules.add(skinModule);
 
+        modules.add(new SettingModule(UiText.t("1.7 动画", "1.7 Animations"), UiText.t("恢复经典使用物品与钓鱼竿动作", "Restore classic item use and fishing rod animations"),
+                new SettingToggle(() -> Config.legacy17Animations, v -> { Config.legacy17Animations = v; Config.save(); }))
+                .addSub(UiText.t("使用物品挥手偏移", "Item Use Swing Offset"), UiText.t("使用物品时应用 1.7 风格的挥手偏移", "Apply the 1.7 swing offset while using an item"),
+                        new SettingToggle(() -> Config.legacy17UseSwing, v -> { Config.legacy17UseSwing = v; Config.save(); }))
+                .addSub(UiText.t("第一人称钓鱼竿位置", "First-Person Fishing Rod"), UiText.t("将第一人称钓鱼竿调整为 1.7 风格", "Adjust the first-person fishing rod to the 1.7 style"),
+                        new SettingToggle(() -> Config.legacy17FishingRod, v -> { Config.legacy17FishingRod = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("打开 HUD 位置编辑器，悬浮控件后可使用滚轮缩放大小", "Open the HUD editor. Hover an element and use the mouse wheel to resize it"),
                 new SettingToggle(() -> false, v -> Minecraft.getInstance().setScreen(new ChatScreen("", false))))
                 .addSub(UiText.t("在聊天框中快速启用", "Quick Enable in Chat"), UiText.t("打开聊天框时自动启用 HUD 拖动编辑", "Automatically enable HUD drag editing when opening chat"),

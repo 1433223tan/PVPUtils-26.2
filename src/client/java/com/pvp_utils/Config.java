@@ -22,6 +22,9 @@ public class Config {
     public static boolean autoMode = false;
     public static boolean swordBlock = false;
     public static boolean useSwing = false;
+    public static boolean legacy17Animations = false;
+    public static boolean legacy17UseSwing = true;
+    public static boolean legacy17FishingRod = true;
     public static boolean noSneakAnimation = false;
     public static boolean noDoubleSneak = true;
     public static boolean isChinese = defaultChinese();
@@ -726,6 +729,7 @@ public class Config {
             new ModuleRule("ElytraImprovements", "elytra", "elytraAssist"),
             new ModuleRule("HitMarker", "hitMarker", "hitMarker"),
             new ModuleRule("HitSound", "hitSound", "hitSound"),
+            new ModuleRule("Legacy17Animations", "legacy17", "legacy17Animations", "legacy17UseSwing", "legacy17FishingRod"),
             new ModuleRule("SwordBlockingAnimation", "swordBlock", "swordBlock", "offsetX", "offsetY", "offsetZ", "animSpeed", "animationMode"),
             new ModuleRule("AutoBlock", "autoMode", "autoMode", "range"),
             new ModuleRule("UseAnimation", "useSwing", "useSwing"),

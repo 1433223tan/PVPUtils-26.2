@@ -35,6 +35,7 @@ public abstract class ItemInHandRendererMixin {
     @Shadow private float mainHandHeight;
     @Shadow private float oMainHandHeight;
     @Shadow private void applyItemArmTransform(PoseStack poseStack, HumanoidArm humanoidArm, float f) {}
+    @Shadow private void applyItemArmAttackTransform(PoseStack poseStack, HumanoidArm humanoidArm, float f) {}
     @Shadow public abstract void renderItem(LivingEntity livingEntity, ItemStack itemStack, ItemDisplayContext itemDisplayContext, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int i);
     private int lastSelectedSlot = -1;
     private ItemStack lastSelectedStack = ItemStack.EMPTY;
@@ -75,7 +76,8 @@ public abstract class ItemInHandRendererMixin {
         boolean visibleItemMatches = ItemStack.matches(currentStack, this.mainHandItem);
         boolean hasTarget = Config.autoMode && isEntityInRange();
         boolean isBlocking = Config.swordBlock && isSword && (client.options.keyUse.isDown() || hasTarget);
-        boolean isEatingSwing = Config.useSwing && client.player.isUsingItem() && !currentStack.is(ItemTags.SPEARS);
+        boolean isEatingSwing = (Config.useSwing || (Config.legacy17Animations && Config.legacy17UseSwing))
+                && client.player.isUsingItem() && !currentStack.is(ItemTags.SPEARS);
         boolean shouldSuppressCooldownRaise = Config.noAttackCooldownAnimation && isWeapon && visibleItemMatches && !waitingForWeaponCooldown && !client.player.isUsingItem();
         if (shouldSuppressCooldownRaise || isBlocking || isEatingSwing || client.screen instanceof SettingsScreen) {
             this.mainHandHeight = 1.0F;
@@ -197,6 +199,17 @@ public abstract class ItemInHandRendererMixin {
     @Inject(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER, ordinal = 0))
     private void applyHeldItemPosition(AbstractClientPlayer abstractClientPlayer, float f, float g, InteractionHand interactionHand, float h, ItemStack itemStack, float i, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int j, CallbackInfo ci) {
         applyHeldItemPositionOffset(interactionHand, poseStack);
+    }
+
+    @Inject(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V"))
+    private void applyLegacy17AnimationTransforms(AbstractClientPlayer player, float tickDelta, float pitch, InteractionHand hand, float swingProgress, ItemStack itemStack, float equippedProgress, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int light, CallbackInfo ci) {
+        if (!Config.legacy17Animations) {
+            return;
+        }
+        HumanoidArm arm = hand == InteractionHand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
+        if (Config.legacy17UseSwing && !Config.useSwing && player.isUsingItem() && !itemStack.is(ItemTags.SPEARS)) {
+            applyItemArmAttackTransform(poseStack, arm, swingProgress);
+        }
     }
 
     private void applyHeldItemPositionOffset(InteractionHand interactionHand, PoseStack poseStack) {
