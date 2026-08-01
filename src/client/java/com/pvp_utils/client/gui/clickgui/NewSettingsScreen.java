@@ -79,7 +79,7 @@ public class NewSettingsScreen extends SkiaScreen {
     private boolean draggingInContent = false;
     private boolean draggingScrollbar = false;
     private float scrollbarDragOffset = 0f;
-    private static final float OPEN_DURATION = 0.16f;
+    private static final float OPEN_DURATION = 0.20f;
     private static final float BASE_CARD_W = 740f;
     private static final float BASE_CARD_H = 500f;
     private static final float SCREEN_MARGIN = 24f;
@@ -167,7 +167,7 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     private float getVisualScale(int width, int height) {
-        return getUiScale(width, height) * (0.9f + 0.1f * easeOutCubic(openProgress));
+        return getUiScale(width, height) * (0.84f + 0.16f * easeInOutQuart(openProgress));
     }
 
     private int layoutWidth() {
@@ -275,6 +275,13 @@ public class NewSettingsScreen extends SkiaScreen {
     private static float easeOutCubic(float t) {
         float x = 1f - clamp01(t);
         return 1f - x * x * x;
+    }
+
+    private static float easeInOutQuart(float t) {
+        t = clamp01(t);
+        return t < 0.5f
+                ? 8f * t * t * t * t
+                : 1f - (float) Math.pow(-2f * t + 2f, 4f) * 0.5f;
     }
 
     private static int withAlpha(int color, float alpha) {
@@ -428,9 +435,9 @@ public class NewSettingsScreen extends SkiaScreen {
             openProgress = clamp01(openProgress + dt / OPEN_DURATION);
         }
 
-        float animT = easeOutCubic(openProgress);
+        float animT = easeInOutQuart(openProgress);
 
-        float visualScale = getUiScale(width, height) * (0.9f + 0.1f * animT);
+        float visualScale = getUiScale(width, height) * (0.84f + 0.16f * animT);
         float layoutMouseX = toLayoutX(mouseX, width, visualScale);
         float layoutMouseY = toLayoutY(mouseY, height, visualScale);
         int layoutWidth = layoutWidth();
@@ -480,7 +487,7 @@ public class NewSettingsScreen extends SkiaScreen {
             updateDebugStats(page);
         }
 
-        float alpha = 1f;
+        float alpha = animT;
         float cx = width / 2f;
         float cy = height / 2f;
 

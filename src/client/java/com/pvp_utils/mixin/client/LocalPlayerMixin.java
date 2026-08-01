@@ -1,11 +1,10 @@
 package com.pvp_utils.mixin.client;
 
-import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
+import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.InteractionHand;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -21,13 +20,6 @@ public class LocalPlayerMixin {
     private void handleUseSwingInput(CallbackInfo ci) {
         LocalPlayer player = (LocalPlayer) (Object) this;
         AutoChestDepositManager.applyRotationLock(player);
-        if (Config.useSwing && player.isUsingItem()) {
-            if (this.minecraft.options.keyAttack.isDown()) {
-                if (player.swingTime <= 0) {
-                    player.swing(InteractionHand.MAIN_HAND);
-                }
-            }
-        }
     }
 
     @Inject(method = "aiStep", at = @At("TAIL"))

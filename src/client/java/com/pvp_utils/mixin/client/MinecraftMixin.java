@@ -19,7 +19,6 @@ import com.pvp_utils.client.alt.AltManagerScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -41,33 +40,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
-    private int pvp_utils$lastUseAttackVisualTick = Integer.MIN_VALUE;
-
     @Inject(method = "tick", at = @At("TAIL"))
     private void pvp_utils$tickToolOverrides(CallbackInfo ci) {
         TimeWeatherChanger.tick((Minecraft) (Object) this);
         DamageNumberRenderer.getInstance().tick((Minecraft) (Object) this);
+        if (pvp_utils$shouldShowUseAttackVisual()) {
+            pvp_utils$playUseAttackVisual();
+        }
     }
 
     @Inject(method = "startUseItem", at = @At("HEAD"))
     private void pvp_utils$prepareQuickUseMainHand(CallbackInfo ci) {
         MainHandAssistManager.beforeStartUseItem((Minecraft) (Object) this);
-    }
-
-    @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
-    private void pvp_utils$showUseAttackVisual(CallbackInfoReturnable<Boolean> cir) {
-        if (pvp_utils$shouldShowUseAttackVisual()) {
-            pvp_utils$playUseAttackVisual();
-            cir.setReturnValue(false);
-        }
-    }
-
-    @Inject(method = "continueAttack", at = @At("HEAD"), cancellable = true)
-    private void pvp_utils$showContinuousUseAttackVisual(boolean hasDelay, CallbackInfo ci) {
-        if (pvp_utils$shouldShowUseAttackVisual()) {
-            pvp_utils$playUseAttackVisual();
-            ci.cancel();
-        }
     }
 
     private boolean pvp_utils$shouldShowUseAttackVisual() {
@@ -77,19 +61,28 @@ public class MinecraftMixin {
                 && client.player != null
                 && client.level != null
                 && client.player.isUsingItem()
+                && !client.player.getItemInHand(client.player.getUsedItemHand()).isEmpty()
                 && client.options.keyAttack.isDown();
     }
 
     private void pvp_utils$playUseAttackVisual() {
         Minecraft client = (Minecraft) (Object) this;
         Player player = client.player;
-        if (player == null || client.level == null || player.tickCount - pvp_utils$lastUseAttackVisualTick < 4) {
+        if (player == null || client.level == null || player.getUsedItemHand() != InteractionHand.MAIN_HAND) {
             return;
         }
-        pvp_utils$lastUseAttackVisualTick = player.tickCount;
-        player.swing(InteractionHand.MAIN_HAND);
         if (client.hitResult instanceof BlockHitResult blockHit && !client.level.getBlockState(blockHit.getBlockPos()).isAir()) {
             client.level.addBreakingBlockEffect(blockHit.getBlockPos(), blockHit.getDirection());
+        } else {
+            return;
+        }
+        LivingEntitySwingAccessor swingAccessor = (LivingEntitySwingAccessor) player;
+        if (!swingAccessor.pvp_utils$isSwinging()
+                || swingAccessor.pvp_utils$getSwingTime() >= swingAccessor.pvp_utils$invokeGetCurrentSwingDuration() / 2
+                || swingAccessor.pvp_utils$getSwingTime() < 0) {
+            swingAccessor.pvp_utils$setSwingTime(-1);
+            swingAccessor.pvp_utils$setSwinging(true);
+            swingAccessor.pvp_utils$setSwingingArm(InteractionHand.MAIN_HAND);
         }
     }
 

@@ -30,12 +30,18 @@ public class RenderPage extends BasePage {
         addSkinOption(skinModule, SkinManager.COSMETIC, "饰品显示");
         modules.add(skinModule);
 
-        modules.add(new SettingModule(UiText.t("1.7 动画", "1.7 Animations"), UiText.t("恢复经典使用物品与钓鱼竿动作", "Restore classic item use and fishing rod animations"),
+        modules.add(new SettingModule(UiText.t("1.7 动画", "1.7 Animations"), UiText.t("让部分物品使用1.7时候的动画", "Use 1.7-style animations for selected items"),
                 new SettingToggle(() -> Config.legacy17Animations, v -> { Config.legacy17Animations = v; Config.save(); }))
                 .addSub(UiText.t("使用物品挥手偏移", "Item Use Swing Offset"), UiText.t("使用物品时应用 1.7 风格的挥手偏移", "Apply the 1.7 swing offset while using an item"),
                         new SettingToggle(() -> Config.legacy17UseSwing, v -> { Config.legacy17UseSwing = v; Config.save(); }))
                 .addSub(UiText.t("第一人称钓鱼竿位置", "First-Person Fishing Rod"), UiText.t("将第一人称钓鱼竿调整为 1.7 风格", "Adjust the first-person fishing rod to the 1.7 style"),
-                        new SettingToggle(() -> Config.legacy17FishingRod, v -> { Config.legacy17FishingRod = v; Config.save(); })));
+                        new SettingToggle(() -> Config.legacy17FishingRod, v -> { Config.legacy17FishingRod = v; Config.save(); }))
+                .addSub(UiText.t("头部旋转", "Head Rotation"), UiText.t("使用 1.7 风格的头部旋转", "Use 1.7-style head rotation"),
+                        new SettingToggle(() -> Config.legacy17HeadRotation, v -> { Config.legacy17HeadRotation = v; Config.save(); }))
+                .addSub(UiText.t("受伤倾斜", "Hurt Tilt"), UiText.t("使用 1.7 风格的受伤倾斜时机", "Use 1.7-style hurt tilt timing"),
+                        new SettingToggle(() -> Config.legacy17HurtTilt, v -> { Config.legacy17HurtTilt = v; Config.save(); }))
+                .addSub(UiText.t("物品拾取位置", "Item Pickup Position"), UiText.t("使用 1.7 风格的物品拾取终点", "Use the 1.7 item pickup destination"),
+                        new SettingToggle(() -> Config.legacy17ItemPickup, v -> { Config.legacy17ItemPickup = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("打开 HUD 位置编辑器，悬浮控件后可使用滚轮缩放大小", "Open the HUD editor. Hover an element and use the mouse wheel to resize it"),
                 new SettingToggle(() -> false, v -> Minecraft.getInstance().setScreen(new ChatScreen("", false))))
@@ -140,9 +146,6 @@ public class RenderPage extends BasePage {
                 new SettingToggle(() -> Config.autoMode, v -> { Config.autoMode = v; Config.save(); }))
                 .addSub(UiText.t("触发距离", "Trigger Range"), UiText.t("自定义近战触发距离", "Customize melee trigger range"),
                         new SettingSlider(2.0, 6.0, "%.2f", () -> Config.range, v -> { Config.range = v; Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("使用动画", "Use Animation"), UiText.t("启用物品使用动画", "Enable item use animation"),
-                new SettingToggle(() -> Config.useSwing, v -> { Config.useSwing = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("挖掘状态显示", "Digging Status"), UiText.t("在准星下方显示当前挖掘进度和预计剩余时间", "Show current digging progress and estimated remaining time under the crosshair"),
                 new SettingToggle(() -> Config.diggingStatus, v -> { Config.diggingStatus = v; Config.save(); })));

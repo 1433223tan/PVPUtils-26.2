@@ -67,7 +67,6 @@ final class WebGUIModules {
                     module("Rainbow Enchantment Glint", "彩虹附魔光效", "Change the enchantment glint to rainbow colors.", "将附魔光效更改为彩虹色", "customEnchantmentGlint"),
                     module("Auto Block", "自动格挡", "Automatically trigger blocking.", "自动触发格挡动作", "autoMode",
                             slider("range", "Trigger Range", "触发距离", 2, 6, 0.01)),
-                    module("Use Animation", "使用动画", "Enable item use animation.", "启用物品使用动画", "useSwing"),
                     module("Digging Status", "挖掘状态显示", "Show current digging progress under the crosshair.", "在准星下方显示当前挖掘进度", "diggingStatus"),
                     module("Better Ping Display", "更好的延迟显示", "Show latency as numbers in the player list.", "在玩家列表中用数字显示延迟", "betterPingDisplay"),
                     module("Lyrics Display", "歌词显示", "Show lyrics for the currently playing music.", "显示当前播放音乐的歌词", "lyricsDisplay"),

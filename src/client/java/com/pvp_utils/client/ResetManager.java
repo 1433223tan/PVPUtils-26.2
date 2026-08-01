@@ -10,7 +10,6 @@ public class ResetManager {
         Config.animSpeed = 1.0f;
         Config.range = 3.0;
         Config.swordBlock = false;
-        Config.useSwing = false;
         Config.autoMode = false;
         Config.noSneakAnimation = false;
         Config.noDoubleSneak = true;
@@ -260,7 +259,6 @@ public class ResetManager {
         Config.animSpeed = 1.0f;
         Config.range = 3.0;
         Config.swordBlock = false;
-        Config.useSwing = false;
         Config.autoMode = false;
         Config.noAttackCooldownAnimation = false;
         Config.animationMode = Config.AnimMode.MODE_1_7;

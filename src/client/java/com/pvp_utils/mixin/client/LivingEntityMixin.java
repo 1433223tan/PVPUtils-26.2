@@ -3,16 +3,18 @@ package com.pvp_utils.mixin.client;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import com.pvp_utils.client.modules.impl.Tool.HeldItemPositionManager;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import net.minecraft.world.entity.player.Player;
 
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin {
@@ -43,18 +45,8 @@ public abstract class LivingEntityMixin {
         }
     }
 
-    @Inject(method = "isUsingItem", at = @At("HEAD"), cancellable = true)
-    private void trickIsUsingItemForSwing(CallbackInfoReturnable<Boolean> cir) {
-        if (Config.useSwing && (Object) this instanceof Player) {
-            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-            for (StackTraceElement element : stackTrace) {
-                String methodName = element.getMethodName();
-                if (methodName.equals("swing") || methodName.equals("m_6674_") ||
-                        methodName.contains("attack") || methodName.contains("handleAttack")) {
-                    cir.setReturnValue(false);
-                    return;
-                }
-            }
-        }
+    @WrapOperation(method = "lerpHeadRotationStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Mth;rotLerp(DDD)D"))
+    private double pvp_utils$legacy17HeadRotation(double delta, double start, double end, Operation<Double> original) {
+        return Config.legacy17Animations && Config.legacy17HeadRotation ? end : original.call(delta, start, end);
     }
 }

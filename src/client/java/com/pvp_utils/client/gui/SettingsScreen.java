@@ -88,8 +88,7 @@ public class SettingsScreen extends Screen {
                     Config.animSpeed = 1.0f;
                     Config.range = 3.0;
                     Config.swordBlock = false;
-                    Config.useSwing = false;
-                    Config.autoMode = false;
+                                Config.autoMode = false;
                     Config.noSneakAnimation = false;
                     Config.sneakDropScale = 0.5f;
                     Config.sneakAnimationSpeed = 1.0f;
@@ -261,14 +260,6 @@ public class SettingsScreen extends Screen {
                     button.setMessage(Component.literal(getToggleText(cn ? "格挡动画" : "Sword Block", Config.swordBlock, cn)));
                     Config.save();
                 }).bounds(sX, centerY + 40, btnW, 20).build());
-
-        this.addRenderableWidget(Button.builder(
-                Component.literal(getToggleText(cn ? "使用动画" : "UseSwing", Config.useSwing, cn)),
-                (button) -> {
-                    Config.useSwing = !Config.useSwing;
-                    button.setMessage(Component.literal(getToggleText(cn ? "使用动画" : "UseSwing", Config.useSwing, cn)));
-                    Config.save();
-                }).bounds(sX + btnW + 2, centerY + 40, btnW, 20).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(getToggleText(cn ? "自动格挡" : "Auto", Config.autoMode, cn)),

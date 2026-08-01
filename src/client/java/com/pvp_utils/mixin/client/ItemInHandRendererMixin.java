@@ -17,6 +17,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
@@ -25,6 +26,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Slice;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
@@ -76,7 +78,7 @@ public abstract class ItemInHandRendererMixin {
         boolean visibleItemMatches = ItemStack.matches(currentStack, this.mainHandItem);
         boolean hasTarget = Config.autoMode && isEntityInRange();
         boolean isBlocking = Config.swordBlock && isSword && (client.options.keyUse.isDown() || hasTarget);
-        boolean isEatingSwing = (Config.useSwing || (Config.legacy17Animations && Config.legacy17UseSwing))
+        boolean isEatingSwing = Config.legacy17Animations && Config.legacy17UseSwing
                 && client.player.isUsingItem() && !currentStack.is(ItemTags.SPEARS);
         boolean shouldSuppressCooldownRaise = Config.noAttackCooldownAnimation && isWeapon && visibleItemMatches && !waitingForWeaponCooldown && !client.player.isUsingItem();
         if (shouldSuppressCooldownRaise || isBlocking || isEatingSwing || client.screen instanceof SettingsScreen) {
@@ -105,9 +107,7 @@ public abstract class ItemInHandRendererMixin {
         }
 
         if (interactionHand == InteractionHand.MAIN_HAND) {
-            boolean isUseSwinging = Config.useSwing && abstractClientPlayer.isUsingItem() && !mainHandStack.is(ItemTags.SPEARS);
-
-            if (isBlocking || isUseSwinging) {
+            if (isBlocking) {
                 ci.cancel();
                 HumanoidArm arm = abstractClientPlayer.getMainArm();
                 int side = arm == HumanoidArm.RIGHT ? 1 : -1;
@@ -164,27 +164,9 @@ public abstract class ItemInHandRendererMixin {
                         poseStack.mulPose(Axis.ZP.rotationDegrees(-side * swingAmount * 35.0F));
                         poseStack.mulPose(Axis.XP.rotationDegrees(swingAmount * -10.0F));
                     }
-                } else {
-                    poseStack.translate(side * -0.66F, -0.06F, 0.0F);
-                    this.applyItemArmTransform(poseStack, arm, 0.0F);
-
-                    float speedH = h * 1.17F;
-                    float f1 = Mth.sin(speedH * (float) Math.PI);
-                    float f2 = Mth.sin(Mth.sqrt(speedH) * (float) Math.PI);
-                    poseStack.translate(side * -0.4F * f2, 0.4F * f1, -0.3F * f2);
-                    poseStack.mulPose(Axis.YP.rotationDegrees(side * 180.0F));
-                    poseStack.mulPose(Axis.YP.rotationDegrees(side * 45.0F));
-                    float f17 = Mth.sin(speedH * speedH * (float) Math.PI);
-                    float f22 = Mth.sin(Mth.sqrt(speedH) * (float) Math.PI);
-                    poseStack.mulPose(Axis.YP.rotationDegrees(side * (f17 * -20.0F)));
-                    poseStack.mulPose(Axis.ZP.rotationDegrees(side * f22 * -20.0F));
-                    poseStack.mulPose(Axis.XP.rotationDegrees(f22 * -80.0F));
-                    poseStack.mulPose(Axis.YP.rotationDegrees(side * -45.0F));
-                    poseStack.mulPose(Axis.YP.rotationDegrees(90.0F));
                 }
 
-                ItemStack renderStack = isBlocking ? mainHandStack : itemStack;
-                this.renderItem(abstractClientPlayer, renderStack, arm == HumanoidArm.RIGHT ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack, submitNodeCollector, j);
+                this.renderItem(abstractClientPlayer, mainHandStack, arm == HumanoidArm.RIGHT ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack, submitNodeCollector, j);
                 poseStack.popPose();
                 HeldItemPositionManager.endHandRender();
             }
@@ -201,14 +183,54 @@ public abstract class ItemInHandRendererMixin {
         applyHeldItemPositionOffset(interactionHand, poseStack);
     }
 
-    @Inject(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V"))
-    private void applyLegacy17AnimationTransforms(AbstractClientPlayer player, float tickDelta, float pitch, InteractionHand hand, float swingProgress, ItemStack itemStack, float equippedProgress, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int light, CallbackInfo ci) {
-        if (!Config.legacy17Animations) {
-            return;
+    @Inject(
+            method = "renderArmWithItem",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;applyItemArmTransform(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/entity/HumanoidArm;F)V",
+                    shift = At.Shift.AFTER
+            ),
+            slice = @Slice(
+                    from = @At(
+                            value = "INVOKE",
+                            target = "Lnet/minecraft/world/item/ItemStack;getUseAnimation()Lnet/minecraft/world/item/ItemUseAnimation;"
+                    ),
+                    to = @At(
+                            value = "INVOKE",
+                            target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;applyItemArmTransform(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/entity/HumanoidArm;F)V",
+                            ordinal = 4
+                    )
+            )
+    )
+    private void pvp_utils$applyLegacy17UsageSwing(
+            AbstractClientPlayer player,
+            float tickDelta,
+            float pitch,
+            InteractionHand hand,
+            float swingProgress,
+            ItemStack itemStack,
+            float equippedProgress,
+            PoseStack poseStack,
+            SubmitNodeCollector submitNodeCollector,
+            int light,
+            CallbackInfo ci
+    ) {
+        if (Config.legacy17Animations
+                && Config.legacy17FishingRod
+                && itemStack.getItem() instanceof FishingRodItem) {
+            int direction = hand == InteractionHand.MAIN_HAND
+                    ? (player.getMainArm() == HumanoidArm.RIGHT ? 1 : -1)
+                    : (player.getMainArm() == HumanoidArm.RIGHT ? -1 : 1);
+            poseStack.mulPose(Axis.YP.rotationDegrees(direction * 180.0F));
         }
-        HumanoidArm arm = hand == InteractionHand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
-        if (Config.legacy17UseSwing && !Config.useSwing && player.isUsingItem() && !itemStack.is(ItemTags.SPEARS)) {
-            applyItemArmAttackTransform(poseStack, arm, swingProgress);
+        if (Config.legacy17Animations
+                && Config.legacy17UseSwing
+                && player.isUsingItem()
+                && !itemStack.is(ItemTags.SPEARS)) {
+            HumanoidArm arm = hand == InteractionHand.MAIN_HAND
+                    ? player.getMainArm()
+                    : player.getMainArm().getOpposite();
+            this.applyItemArmAttackTransform(poseStack, arm, swingProgress);
         }
     }
 

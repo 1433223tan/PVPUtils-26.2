@@ -63,7 +63,6 @@ public class ArraylistRenderer {
             new Entry("Sneak Animation Adjustment", () -> Config.noSneakAnimation),
             new Entry("Sword Blocking Animation", () -> Config.swordBlock),
             new Entry("Time Change", () -> Config.timeChange),
-            new Entry("Use Animation", () -> Config.useSwing),
             new Entry("Victory Sound", () -> Config.victorySound),
             new Entry("Weather Change", () -> Config.weatherChange),
             new Entry("Zoom", () -> Config.zoom)
