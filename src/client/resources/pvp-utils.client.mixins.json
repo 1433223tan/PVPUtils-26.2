@@ -3,6 +3,7 @@
     "package":  "com.pvp_utils.mixin.client",
     "compatibilityLevel":  "JAVA_25",
     "mixins":  [
+                   "FrameEndGameRendererMixin",
                    "RenderTypeMixin",
                    "RenderTypeStateAccessor",
                    "RenderSetupAccessor",
@@ -79,7 +80,6 @@
                    "BetterChatChatMixin",
                    "BetterChatGuiMessageMixin",
                    "BetterChatGuiMessageLineMixin",
-                   "BetterChatLineRenderMixin",
                    "BetterChatTextCollectorMixin",
                    "BetterChatPlayerChatMessageMixin",
                    "BetterScoreboardGuiMixin",

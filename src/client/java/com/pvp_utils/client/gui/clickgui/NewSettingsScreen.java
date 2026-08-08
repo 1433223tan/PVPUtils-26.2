@@ -757,7 +757,8 @@ public class NewSettingsScreen extends SkiaScreen {
     @Override public void onClose() {
         SettingTextBox.clearFocus();
         clearSearch();
-        closing = true;
+        closing = false;
+        super.onClose();
     }
 
     @Override
