@@ -12,21 +12,27 @@ import com.pvp_utils.client.render.MainUI.PVPUtilsSingleplayerScreen;
 import com.pvp_utils.client.render.MainUI.PVPUtilsViaFabricPlusScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(GameRenderer.class)
-public abstract class FrameEndGameRendererMixin {
-    @Inject(method = "render", at = @At("TAIL"))
-    private void pvp_utils$renderDeferredSkiaFrames(CallbackInfo ci) {
+@Mixin(Minecraft.class)
+public abstract class FrameEndMinecraftMixin {
+    @Inject(
+            method = "renderFrame",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/renderer/GameRenderer;render(Lnet/minecraft/client/DeltaTracker;Z)V",
+                    shift = At.Shift.AFTER
+            )
+    )
+    private void pvp_utils$renderDeferredSkiaFrames(boolean advanceGameTime, CallbackInfo ci) {
         PotionStatusRenderer.getInstance().renderFrameEnd();
         KeystrokesRenderer.getInstance().renderFrameEnd();
         HudEditOverlay.getInstance().renderFrameEnd();
 
-        Screen screen = Minecraft.getInstance().gui.screen();
+        Screen screen = ((Minecraft) (Object) this).gui.screen();
         if (screen instanceof NewSettingsScreen settingsScreen) {
             settingsScreen.renderFrameEnd();
         } else if (screen instanceof NeteaseMusicScreen musicScreen) {

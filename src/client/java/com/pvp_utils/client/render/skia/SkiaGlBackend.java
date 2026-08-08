@@ -8,7 +8,13 @@ import io.github.humbleui.skija.DirectContext;
 import io.github.humbleui.skija.FramebufferFormat;
 import io.github.humbleui.skija.Surface;
 import io.github.humbleui.skija.SurfaceOrigin;
+import com.mojang.blaze3d.opengl.FrameBufferAttachment;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.pvp_utils.mixin.client.GlDeviceAccessor;
 import net.minecraft.client.Minecraft;
+
+import java.util.List;
 
 import static org.lwjgl.opengl.GL11.GL_CULL_FACE;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
@@ -43,10 +49,11 @@ public final class SkiaGlBackend {
         var window = Minecraft.getInstance().getWindow();
         int targetW = Math.max(1, window.getWidth());
         int targetH = Math.max(1, window.getHeight());
+        int resolvedFramebufferId = targetFramebufferId == 0 ? mainFramebufferId() : targetFramebufferId;
         ensureState();
         state.push();
         try {
-            ensureSurface(targetW, targetH, targetFramebufferId);
+            ensureSurface(targetW, targetH, resolvedFramebufferId);
             if (surface == null || canvas == null) {
                 state.pop();
                 return null;
@@ -179,6 +186,23 @@ public final class SkiaGlBackend {
     private void ensureContext() {
         if (context != null) return;
         context = DirectContext.makeGL();
+    }
+
+    public static int mainFramebufferId() {
+        Minecraft client = Minecraft.getInstance();
+        if (!(RenderSystem.getDevice() instanceof GlDeviceAccessor device)) return 0;
+
+        RenderTarget target = client.gameRenderer.mainRenderTarget();
+        if (!(target.getColorTexture() instanceof FrameBufferAttachment colorAttachment)) return 0;
+
+        FrameBufferAttachment depthAttachment = target.getDepthTexture() instanceof FrameBufferAttachment attachment
+                ? attachment
+                : null;
+        return device.pvp_utils$getFrameBufferCache().getFbo(
+                device.pvp_utils$getDirectStateAccess(),
+                List.of(colorAttachment),
+                depthAttachment
+        );
     }
 
     private void ensureState() {

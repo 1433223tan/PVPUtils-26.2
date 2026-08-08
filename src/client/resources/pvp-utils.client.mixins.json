@@ -3,7 +3,8 @@
     "package":  "com.pvp_utils.mixin.client",
     "compatibilityLevel":  "JAVA_25",
     "mixins":  [
-                   "FrameEndGameRendererMixin",
+                   "GlDeviceAccessor",
+                   "FrameEndMinecraftMixin",
                    "RenderTypeMixin",
                    "RenderTypeStateAccessor",
                    "RenderSetupAccessor",
@@ -65,8 +66,6 @@
                    "FogRendererMixin",
                    "TitleScreenMixin",
                    "ScreenMixin",
-                   "GameRendererMixin",
-                   "ZoomGameRendererMixin",
                    "ZoomMouseHandlerMixin",
                    "GameRendererTotemMixin",
                    "InputMethodFixEditBoxMixin",
