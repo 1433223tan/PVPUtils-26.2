@@ -180,10 +180,7 @@ public class NewSettingsScreen extends SkiaScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        pendingMouseX = mouseX;
-        pendingMouseY = mouseY;
-        pendingDelta = delta;
-        pendingFrame = true;
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
     }
 
     public void renderFrameEnd() {
