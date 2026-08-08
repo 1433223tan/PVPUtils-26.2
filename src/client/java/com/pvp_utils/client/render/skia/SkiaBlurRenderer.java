@@ -1,7 +1,7 @@
 package com.pvp_utils.client.render.skia;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
+
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.ColorFilter;
@@ -48,7 +48,7 @@ public final class SkiaBlurRenderer {
     }
 
     public boolean render(Minecraft client, float x, float y, float width, float height, float radius, int tintColor, float strength) {
-        if (client == null || client.getWindow() == null || client.getMainRenderTarget() == null) return false;
+        if (client == null || client.getWindow() == null || client.gameRenderer.mainRenderTarget() == null) return false;
         int framebufferId = mainFramebufferId(client);
         Canvas canvas = framebufferBackend.begin(framebufferId);
         DirectContext context = framebufferBackend.getContext();
@@ -64,7 +64,7 @@ public final class SkiaBlurRenderer {
     }
 
     public boolean renderRegions(Minecraft client, List<Region> regions, int tintColor, float strength) {
-        if (client == null || client.getWindow() == null || client.getMainRenderTarget() == null || regions == null || regions.isEmpty()) {
+        if (client == null || client.getWindow() == null || client.gameRenderer.mainRenderTarget() == null || regions == null || regions.isEmpty()) {
             return false;
         }
         float left = Float.MAX_VALUE;
@@ -358,10 +358,6 @@ public final class SkiaBlurRenderer {
     }
 
     private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
         return currentDrawFramebufferId();
     }
 

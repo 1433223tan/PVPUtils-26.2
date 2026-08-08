@@ -19,7 +19,7 @@ import io.github.humbleui.skija.SurfaceProps;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -71,13 +71,13 @@ public class ArmorHudRenderer {
         return INSTANCE;
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         Minecraft client = Minecraft.getInstance();
         if (!Config.armorHud) {
             destroyTextures(client);
             return;
         }
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof com.pvp_utils.client.render.skia.SkiaScreen) {
+        if (client.player == null || client.level == null || false || client.gui.screen() instanceof com.pvp_utils.client.render.skia.SkiaScreen) {
             return;
         }
 
@@ -160,7 +160,7 @@ public class ArmorHudRenderer {
         return clamp(screenH - 22f - getEditHeight() - 6f + Config.armorHudY, 0f, Math.max(0f, screenH - getEditHeight()));
     }
 
-    private void renderNew(GuiGraphics graphics, Minecraft client, ArmorEntry[] entries, int screenW, int screenH) {
+    private void renderNew(GuiGraphicsExtractor graphics, Minecraft client, ArmorEntry[] entries, int screenW, int screenH) {
         NewLayout layout = makeNewLayout(entries.length, screenW, screenH);
         float guiScale = Math.max(1f, (float) client.getWindow().getGuiScale() * getRenderScale());
 
@@ -179,7 +179,7 @@ public class ArmorHudRenderer {
         }
     }
 
-    private void renderNewCard(GuiGraphics graphics, Minecraft client, CardTexture cardTexture, ItemStack stack, float x, float y, float guiScale) {
+    private void renderNewCard(GuiGraphicsExtractor graphics, Minecraft client, CardTexture cardTexture, ItemStack stack, float x, float y, float guiScale) {
         ensureNativeLoaded();
         renderCardTexture(client, cardTexture, stack, guiScale);
         if (cardTexture.dynamicTexture == null) {
@@ -198,11 +198,11 @@ public class ArmorHudRenderer {
         graphics.pose().translate(iconX, iconY);
         graphics.pose().scale(scale, scale);
         graphics.pose().translate(-iconX, -iconY);
-        graphics.renderFakeItem(stack, Math.round(iconX), Math.round(iconY));
+        graphics.fakeItem(stack, Math.round(iconX), Math.round(iconY));
         graphics.pose().popMatrix();
     }
 
-    private void renderLite(GuiGraphics graphics, Minecraft client, ArmorEntry[] entries, int screenW, int screenH) {
+    private void renderLite(GuiGraphicsExtractor graphics, Minecraft client, ArmorEntry[] entries, int screenW, int screenH) {
         LiteLayout layout = makeLiteLayout(entries.length, screenW, screenH);
         for (int i = 0; i < entries.length; i++) {
             ArmorEntry entry = entries[i];
@@ -215,28 +215,28 @@ public class ArmorHudRenderer {
         }
     }
 
-    private void renderLiteItem(GuiGraphics graphics, Minecraft client, ItemStack stack, float x, float y, float scale) {
+    private void renderLiteItem(GuiGraphicsExtractor graphics, Minecraft client, ItemStack stack, float x, float y, float scale) {
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
         graphics.pose().translate(-x, -y);
         int ix = Math.round(x);
         int iy = Math.round(y);
-        graphics.renderFakeItem(stack, ix, iy);
+        graphics.fakeItem(stack, ix, iy);
         if (Config.armorHudShowBar) {
-            graphics.renderItemDecorations(client.font, stack, ix, iy);
+            graphics.itemDecorations(client.font, stack, ix, iy);
         }
         graphics.pose().popMatrix();
     }
 
-    private void renderLitePercent(GuiGraphics graphics, Minecraft client, ItemStack stack, float x, float y, float scale) {
+    private void renderLitePercent(GuiGraphicsExtractor graphics, Minecraft client, ItemStack stack, float x, float y, float scale) {
         if (!stack.isDamageableItem() || stack.getMaxDamage() <= 0) {
             return;
         }
         float ratio = clamp((stack.getMaxDamage() - stack.getDamageValue()) / (float) stack.getMaxDamage(), 0f, 1f);
         String text = Math.round(ratio * 100f) + "%";
         int textX = Math.round(x + (LITE_ICON * scale - client.font.width(text)) * 0.5f);
-        graphics.drawString(client.font, text, textX, Math.round(y), 0xFFFFFFFF, false);
+        graphics.text(client.font, text, textX, Math.round(y), 0xFFFFFFFF, false);
     }
 
     private void renderCardTexture(Minecraft client, CardTexture cardTexture, ItemStack stack, float guiScale) {
@@ -451,7 +451,7 @@ public class ArmorHudRenderer {
             ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
             GpuTexture gpuTexture = targetTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+                    .writeToTexture(gpuTexture, buf, 0, 0, 0, 0, width, height);
             return true;
         } finally {
             pixmap.close();

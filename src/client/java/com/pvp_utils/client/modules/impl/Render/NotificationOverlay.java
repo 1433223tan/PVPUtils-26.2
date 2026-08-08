@@ -4,7 +4,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.item.ItemStack;
 
 public class NotificationOverlay {
@@ -109,11 +109,11 @@ public class NotificationOverlay {
         }
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         render(graphics, null);
     }
 
-    public void render(GuiGraphics graphics, Canvas canvas) {
+    public void render(GuiGraphicsExtractor graphics, Canvas canvas) {
         boolean editPreview = previewActive && !active;
         if (!active && !editPreview) return;
 
@@ -238,7 +238,7 @@ public class NotificationOverlay {
                 }
                 currentX += iconSize + iconMargin;
             } else if (hasIcon) {
-                graphics.renderFakeItem(renderIcon, currentX, y + (HEIGHT - iconSize) / 2);
+                graphics.fakeItem(renderIcon, currentX, y + (HEIGHT - iconSize) / 2);
                 currentX += iconSize + iconMargin;
             }
             if (canvas != null) {

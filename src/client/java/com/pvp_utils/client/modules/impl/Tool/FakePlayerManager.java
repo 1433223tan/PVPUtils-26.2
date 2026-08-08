@@ -109,7 +109,7 @@ public class FakePlayerManager {
         fakePlayer.hurtTime = 10;
         fakePlayer.hurtDuration = 10;
         fakePlayer.animateHurt((float) client.player.getYRot());
-        fakePlayer.knockback(0.45, -look.x, -look.z);
+        fakePlayer.setDeltaMovement(fakePlayer.getDeltaMovement().add(-look.x * 0.45, 0.0, -look.z * 0.45));
         if (fakePlayer.getHealth() - damage <= 0.0f && totem && fakePlayer.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
             triggerTotem(client);
             return true;
@@ -192,12 +192,12 @@ public class FakePlayerManager {
     private static void spawnTotemParticles(ClientLevel currentLevel, int count) {
         if (currentLevel == null || fakePlayer == null) return;
         for (int i = 0; i < count; i++) {
-            double x = fakePlayer.getX() + (currentLevel.random.nextDouble() - 0.5) * fakePlayer.getBbWidth() * 1.7;
-            double y = fakePlayer.getY() + currentLevel.random.nextDouble() * fakePlayer.getBbHeight();
-            double z = fakePlayer.getZ() + (currentLevel.random.nextDouble() - 0.5) * fakePlayer.getBbWidth() * 1.7;
-            double vx = (currentLevel.random.nextDouble() - 0.5) * 0.35;
-            double vy = currentLevel.random.nextDouble() * 0.35;
-            double vz = (currentLevel.random.nextDouble() - 0.5) * 0.35;
+            double x = fakePlayer.getX() + (net.minecraft.util.RandomSource.create().nextDouble() - 0.5) * fakePlayer.getBbWidth() * 1.7;
+            double y = fakePlayer.getY() + net.minecraft.util.RandomSource.create().nextDouble() * fakePlayer.getBbHeight();
+            double z = fakePlayer.getZ() + (net.minecraft.util.RandomSource.create().nextDouble() - 0.5) * fakePlayer.getBbWidth() * 1.7;
+            double vx = (net.minecraft.util.RandomSource.create().nextDouble() - 0.5) * 0.35;
+            double vy = net.minecraft.util.RandomSource.create().nextDouble() * 0.35;
+            double vz = (net.minecraft.util.RandomSource.create().nextDouble() - 0.5) * 0.35;
             currentLevel.addParticle(ParticleTypes.TOTEM_OF_UNDYING, x, y, z, vx, vy, vz);
         }
     }

@@ -5,12 +5,12 @@ import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+
+
+
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -39,18 +39,18 @@ public final class BetterScoreboardRenderer {
         return INSTANCE;
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         if (!Config.betterScoreboard || !Config.betterScoreboardVisualImprovement) {
             return;
         }
         Minecraft client = Minecraft.getInstance();
-        if (client.level == null || client.options.hideGui) {
+        if (client.level == null || false) {
             return;
         }
 
         Objective objective = client.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
         boolean editActive = HudEditOverlay.getInstance().isActive();
-        if (client.screen != null && !editActive) {
+        if (client.gui.screen() != null && !editActive) {
             return;
         }
         if (objective == null && !editActive) {
@@ -100,10 +100,6 @@ public final class BetterScoreboardRenderer {
     }
 
     private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 
@@ -136,7 +132,7 @@ public final class BetterScoreboardRenderer {
         }
     }
 
-    private void drawNativeFormattedText(GuiGraphics graphics, Minecraft client, float x, float y, float w, float bgPad,
+    private void drawNativeFormattedText(GuiGraphicsExtractor graphics, Minecraft client, float x, float y, float w, float bgPad,
                                          Component titleComponent, String titleText, boolean titleFormatted,
                                          List<BetterScoreboardManager.Row> rows, float scale) {
         float contentX = x + bgPad;
@@ -249,7 +245,7 @@ public final class BetterScoreboardRenderer {
         return width;
     }
 
-    private void drawNativeGlyphs(GuiGraphics graphics, Minecraft client, List<NativeGlyph> glyphs) {
+    private void drawNativeGlyphs(GuiGraphicsExtractor graphics, Minecraft client, List<NativeGlyph> glyphs) {
         for (NativeGlyph glyph : glyphs) {
             drawNativeComponent(graphics, client, glyph.component(), glyph.x(), glyph.y(), glyph.scale(), glyph.fallbackColor());
         }
@@ -260,11 +256,11 @@ public final class BetterScoreboardRenderer {
                 || Character.UnicodeBlock.of(codePoint) == Character.UnicodeBlock.PRIVATE_USE_AREA;
     }
 
-    private void drawNativeComponent(GuiGraphics graphics, Minecraft client, Component component, float x, float y, float scale, int fallbackColor) {
+    private void drawNativeComponent(GuiGraphicsExtractor graphics, Minecraft client, Component component, float x, float y, float scale, int fallbackColor) {
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
-        graphics.drawString(client.font, component, 0, 0, fallbackColor, false);
+        graphics.text(client.font, component, 0, 0, fallbackColor, false);
         graphics.pose().popMatrix();
     }
 

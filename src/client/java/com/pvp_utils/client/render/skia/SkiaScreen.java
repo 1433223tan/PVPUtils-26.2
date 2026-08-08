@@ -1,7 +1,7 @@
 package com.pvp_utils.client.render.skia;
 
 import io.github.humbleui.skija.Canvas;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -18,7 +18,7 @@ public abstract class SkiaScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         if (shouldRedraw()) {
             Canvas canvas = SkiaRenderer.begin();
             if (canvas != null) {
@@ -64,13 +64,13 @@ public abstract class SkiaScreen extends Screen {
     }
 
     @Override
-    protected void renderBlurredBackground(GuiGraphics guiGraphics) {}
+    protected void extractBlurredBackground(GuiGraphicsExtractor guiGraphics) {}
 
     @Override
-    protected void renderMenuBackground(GuiGraphics guiGraphics) {}
+    protected void extractMenuBackground(GuiGraphicsExtractor guiGraphics) {}
 
     @Override
-    public void renderBackground(GuiGraphics guiGraphics, int i, int j, float f) {}
+    public void extractBackground(GuiGraphicsExtractor guiGraphics, int i, int j, float f) {}
 
     protected abstract void drawSkia(Canvas canvas, int width, int height, int mouseX, int mouseY, float delta);
 
@@ -82,7 +82,7 @@ public abstract class SkiaScreen extends Screen {
     protected void closing() {
         SkiaRenderer.resetFrameState();
         if (this.minecraft != null) {
-            this.minecraft.setScreen(parent);
+            this.minecraft.gui.setScreen(parent);
         }
     }
 

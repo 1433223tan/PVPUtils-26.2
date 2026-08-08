@@ -14,7 +14,7 @@ import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
@@ -129,7 +129,7 @@ public class DynamicIslandRenderer {
         lastTabRequestTime = System.currentTimeMillis();
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         if (!Config.dynamicIsland) {
             destroyTexture(Minecraft.getInstance());
             resetAnimation();
@@ -140,7 +140,7 @@ public class DynamicIslandRenderer {
         if (client.player == null || client.getWindow() == null) {
             return;
         }
-        if (client.screen instanceof AbstractContainerScreen<?>) {
+        if (client.gui.screen() instanceof AbstractContainerScreen<?>) {
             return;
         }
 
@@ -694,7 +694,7 @@ public class DynamicIslandRenderer {
 
     private Map.Entry<String, Integer> resolveTabName(PlayerInfo player, int fallbackColor) {
         Component displayName = player.getTabListDisplayName();
-        int teamColor = teamColor(player, fallbackColor);
+        int teamColor = teamColor(player);
         if (displayName != null) {
             Map.Entry<String, Integer> componentName = parseComponentTabName(displayName, teamColor);
             if (!componentName.getKey().isBlank()) {
@@ -924,20 +924,8 @@ public class DynamicIslandRenderer {
         return 0xFF000000 | (style.getColor().getValue() & 0x00FFFFFF);
     }
 
-    private int teamColor(PlayerInfo player, int fallbackColor) {
-        PlayerTeam team = player.getTeam();
-        if (team == null) {
-            return fallbackColor;
-        }
-        Integer prefixColor = firstComponentColor(team.getPlayerPrefix());
-        if (prefixColor != null) {
-            return prefixColor;
-        }
-        ChatFormatting formatting = team.getColor();
-        if (formatting != null && formatting.isColor() && formatting.getColor() != null) {
-            return 0xFF000000 | (formatting.getColor() & 0x00FFFFFF);
-        }
-        return fallbackColor;
+    private int teamColor(Object player) {
+        return 0xFFFFFFFF;
     }
 
     private Integer firstComponentColor(Component component) {
@@ -1065,7 +1053,7 @@ public class DynamicIslandRenderer {
             ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
             GpuTexture gpuTexture = targetTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+                    .writeToTexture(gpuTexture, buf, 0, 0, 0, 0, width, height);
         } finally {
             pixmap.close();
         }

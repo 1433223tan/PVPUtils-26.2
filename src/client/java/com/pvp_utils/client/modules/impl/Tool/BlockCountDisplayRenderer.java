@@ -12,7 +12,7 @@ import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -110,7 +110,7 @@ public class BlockCountDisplayRenderer {
         if (HudEditOverlay.getInstance().isActive()) return;
 
         LocalPlayer player = client.player;
-        if (player == null || client.level == null || client.screen != null) {
+        if (player == null || client.level == null || client.gui.screen() != null) {
             close();
             rightClicks.resetPressed();
             return;
@@ -142,7 +142,7 @@ public class BlockCountDisplayRenderer {
     public void triggerUse(Minecraft client) {
         if (!isFeatureActive() || HudEditOverlay.getInstance().isActive()) return;
         LocalPlayer player = client.player;
-        if (player == null || client.level == null || client.screen != null) return;
+        if (player == null || client.level == null || client.gui.screen() != null) return;
         ItemStack stack = player.getMainHandItem();
         if (!(stack.getItem() instanceof BlockItem)) return;
 
@@ -159,7 +159,7 @@ public class BlockCountDisplayRenderer {
     public void recordPlacement(Minecraft client) {
         if (!isFeatureActive() || HudEditOverlay.getInstance().isActive()) return;
         LocalPlayer player = client.player;
-        if (player == null || client.level == null || client.screen != null) return;
+        if (player == null || client.level == null || client.gui.screen() != null) return;
         ItemStack stack = player.getMainHandItem();
         if (!(stack.getItem() instanceof BlockItem)) return;
 
@@ -173,7 +173,7 @@ public class BlockCountDisplayRenderer {
         displayStack = stack.copy();
     }
 
-    public void render(GuiGraphics graphics, Canvas canvas) {
+    public void render(GuiGraphicsExtractor graphics, Canvas canvas) {
         if (!isFeatureActive()) {
             destroyTexture(Minecraft.getInstance());
             reset();
@@ -188,7 +188,7 @@ public class BlockCountDisplayRenderer {
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;
         boolean editActive = HudEditOverlay.getInstance().isActive();
-        if (player == null || client.level == null || (client.screen != null && !editActive)) {
+        if (player == null || client.level == null || (client.gui.screen() != null && !editActive)) {
             close();
             updateScale(System.currentTimeMillis());
             return;
@@ -268,14 +268,14 @@ public class BlockCountDisplayRenderer {
         graphics.pose().translate(ringCx, ringCy);
         graphics.pose().scale(iconScale, iconScale);
         graphics.pose().translate(-ringCx, -ringCy);
-        graphics.renderFakeItem(displayStack, itemX, itemY);
-        graphics.renderItemDecorations(client.font, displayStack, itemX, itemY);
-        graphics.renderDeferredElements();
+        graphics.fakeItem(displayStack, itemX, itemY);
+        graphics.itemDecorations(client.font, displayStack, itemX, itemY);
+
         graphics.pose().popMatrix();
     }
 
     public void renderFrameEnd() {
-        // Kept for the shared frame-end hook. BlockCount renders through GuiGraphics to keep item layering correct.
+        // Kept for the shared frame-end hook. BlockCount renders through GuiGraphicsExtractor to keep item layering correct.
     }
 
     public Snapshot snapshot(Minecraft client) {
@@ -486,7 +486,7 @@ public class BlockCountDisplayRenderer {
             ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
             GpuTexture gpuTexture = targetTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+                    .writeToTexture(gpuTexture, buf, 0, 0, 0, 0, width, height);
         } finally {
             pixmap.close();
         }

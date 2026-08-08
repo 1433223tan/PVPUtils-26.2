@@ -2,7 +2,7 @@ package com.pvp_utils.client.gui.clickgui;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.TermsManager;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -29,10 +29,10 @@ public class TermsScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         graphics.fill(0, 0, this.width, this.height, 0xE6000000);
         int center = this.width / 2;
-        graphics.drawCenteredString(this.font, this.title, center, 36, 0xFFFFFFFF);
+        graphics.centeredText(this.font, this.title, center, 36, 0xFFFFFFFF);
 
         if (Config.isChinese) {
             drawCentered(graphics, "本模组包含可能被部分服务器限制的功能，请先阅读规则文件。", center, 82, 0xFFFFFFFF);
@@ -54,7 +54,7 @@ public class TermsScreen extends Screen {
                 0xFF3A3A3A, Config.isChinese ? "打开规则文件" : "Open Rules File", false);
     }
 
-    private void drawButton(GuiGraphics graphics, int x, int y, int w, int h,
+    private void drawButton(GuiGraphicsExtractor graphics, int x, int y, int w, int h,
                             int mouseX, int mouseY, int color, String text, boolean disabled) {
         boolean hover = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
         int fill = disabled ? 0xFF4A4A4A : color;
@@ -62,7 +62,7 @@ public class TermsScreen extends Screen {
             fill = brighten(fill);
         }
         graphics.fill(x, y, x + w, y + h, fill);
-        graphics.drawCenteredString(this.font, text, x + w / 2, y + 7, 0xFFFFFFFF);
+        graphics.centeredText(this.font, text, x + w / 2, y + 7, 0xFFFFFFFF);
     }
 
     private int brighten(int color) {
@@ -73,8 +73,8 @@ public class TermsScreen extends Screen {
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
-    private void drawCentered(GuiGraphics graphics, String text, int x, int y, int color) {
-        graphics.drawCenteredString(this.font, text, x, y, color);
+    private void drawCentered(GuiGraphicsExtractor graphics, String text, int x, int y, int color) {
+        graphics.centeredText(this.font, text, x, y, color);
     }
 
     @Override
@@ -97,7 +97,7 @@ public class TermsScreen extends Screen {
             Config.fullMode = false;
             Config.save();
             if (this.minecraft != null) {
-                this.minecraft.setScreen(new NewSettingsScreen(parent));
+                this.minecraft.gui.setScreen(new NewSettingsScreen(parent));
             }
             return true;
         }

@@ -7,7 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.FurnaceResultSlot;
 import net.minecraft.world.inventory.MerchantResultSlot;
 import net.minecraft.world.inventory.ResultSlot;
@@ -494,7 +494,7 @@ public final class BetterMouseLogicManager {
         }
 
         private void clickSlot(Slot slot, MouseButton mouseButton, boolean shiftPressed) {
-            accessor.pvp_utils$slotClicked(slot, slot.index, mouseButton.value, shiftPressed ? ClickType.QUICK_MOVE : ClickType.PICKUP);
+            accessor.pvp_utils$slotClicked(slot, slot.index, mouseButton.value, shiftPressed ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP);
         }
 
         private boolean isCraftingOutput(Slot slot) {

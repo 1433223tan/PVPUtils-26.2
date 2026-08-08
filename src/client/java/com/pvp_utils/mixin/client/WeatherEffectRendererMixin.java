@@ -4,7 +4,7 @@ import com.pvp_utils.Config;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.WeatherEffectRenderer;
-import net.minecraft.client.renderer.state.WeatherRenderState;
+import net.minecraft.client.renderer.state.level.WeatherRenderState;
 import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;

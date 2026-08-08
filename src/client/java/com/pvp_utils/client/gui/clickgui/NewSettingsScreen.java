@@ -16,15 +16,15 @@ import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+
+
+
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFW;
 
@@ -179,7 +179,7 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         pendingMouseX = mouseX;
         pendingMouseY = mouseY;
         pendingDelta = delta;
@@ -187,7 +187,7 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     public void renderFrameEnd() {
-        if (!pendingFrame || this.minecraft == null || this.minecraft.screen != this) {
+        if (!pendingFrame || this.minecraft == null || this.minecraft.gui.screen() != this) {
             pendingFrame = false;
             return;
         }
@@ -324,10 +324,6 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     private int mainFramebufferId() {
-        if (minecraft.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 

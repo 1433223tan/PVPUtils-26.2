@@ -1,8 +1,8 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+
+
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.font.FontRenderer;
@@ -14,7 +14,7 @@ import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
 
 import java.util.List;
@@ -70,11 +70,11 @@ public class KeystrokesRenderer {
         return INSTANCE;
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         if (!Config.keystrokes) return;
 
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) return;
+        if (client.gui.screen() instanceof SkiaScreen || client.gui.screen() instanceof NeteaseMusicScreen) return;
         LocalPlayer player = client.player;
         if (player == null) return;
 
@@ -108,7 +108,7 @@ public class KeystrokesRenderer {
         return false;
     }
 
-    private void renderLite(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
+    private void renderLite(GuiGraphicsExtractor graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
@@ -165,7 +165,7 @@ public class KeystrokesRenderer {
     public void renderFrameEnd() {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
-        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || false || client.gui.screen() instanceof SkiaScreen || client.gui.screen() instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -173,36 +173,36 @@ public class KeystrokesRenderer {
         clearPendingFrame();
     }
 
-    private void drawLiteKey(GuiGraphics graphics, String label, float x, float y, float width, float height, boolean active) {
+    private void drawLiteKey(GuiGraphicsExtractor graphics, String label, float x, float y, float width, float height, boolean active) {
         int ix = Math.round(x);
         int iy = Math.round(y);
         int iw = Math.round(width);
         int ih = Math.round(height);
         graphics.fill(ix, iy, ix + iw, iy + ih, active ? LITE_ACTIVE_COLOR : LITE_BG_COLOR);
-        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
+        graphics.outline(ix, iy, iw, ih, 0x99FFFFFF);
 
         int textColor = active ? LITE_ACTIVE_TEXT_COLOR : LITE_TEXT_COLOR;
         Minecraft client = Minecraft.getInstance();
         int textW = client.font.width(label);
         int textX = Math.round(x + (width - textW) * 0.5f);
         int textY = Math.round(y + (height - 8f) * 0.5f);
-        graphics.drawString(client.font, label, textX, textY, textColor, false);
+        graphics.text(client.font, label, textX, textY, textColor, false);
     }
 
-    private void drawLiteMouseKey(GuiGraphics graphics, Minecraft client, String label, int cps, float x, float y, float width, float height, boolean active) {
+    private void drawLiteMouseKey(GuiGraphicsExtractor graphics, Minecraft client, String label, int cps, float x, float y, float width, float height, boolean active) {
         int ix = Math.round(x);
         int iy = Math.round(y);
         int iw = Math.round(width);
         int ih = Math.round(height);
         graphics.fill(ix, iy, ix + iw, iy + ih, active ? LITE_ACTIVE_COLOR : LITE_BG_COLOR);
-        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
+        graphics.outline(ix, iy, iw, ih, 0x99FFFFFF);
 
         int textColor = active ? LITE_ACTIVE_TEXT_COLOR : LITE_TEXT_COLOR;
         String cpsText = cps + " CPS";
         int labelX = Math.round(x + (width - client.font.width(label)) * 0.5f);
         int cpsX = Math.round(x + (width - client.font.width(cpsText)) * 0.5f);
-        graphics.drawString(client.font, label, labelX, Math.round(y + 4f), textColor, false);
-        graphics.drawString(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
+        graphics.text(client.font, label, labelX, Math.round(y + 4f), textColor, false);
+        graphics.text(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
     }
 
     private void renderGl(Minecraft client, int x, int y, float scale, int leftCps, int rightCps) {
@@ -270,14 +270,10 @@ public class KeystrokesRenderer {
     }
 
     private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 
-    private void drawFallback(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown, boolean upDown, boolean keyLeftDown, boolean downDown, boolean keyRightDown, boolean jumpDown, boolean shiftDown) {
+    private void drawFallback(GuiGraphicsExtractor graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown, boolean upDown, boolean keyLeftDown, boolean downDown, boolean keyRightDown, boolean jumpDown, boolean shiftDown) {
         int mouseY = (KEY_SIZE + GAP) * 2;
         int leftMouseW = (TOTAL_W - GAP) / 2;
         int rightMouseW = TOTAL_W - GAP - leftMouseW;
@@ -292,20 +288,20 @@ public class KeystrokesRenderer {
         drawFallbackKey(graphics, "SHIFT", x + (leftMouseW + GAP) * scale, y + bottomY * scale, rightMouseW * scale, KEY_SIZE * scale, shiftDown);
     }
 
-    private void drawFallbackKey(GuiGraphics graphics, String label, float x, float y, float width, float height, boolean active) {
+    private void drawFallbackKey(GuiGraphicsExtractor graphics, String label, float x, float y, float width, float height, boolean active) {
         int ix = Math.round(x);
         int iy = Math.round(y);
         int iw = Math.round(width);
         int ih = Math.round(height);
         graphics.fill(ix, iy, ix + iw, iy + ih, active ? BG_ACTIVE_COLOR : BG_COLOR);
-        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
+        graphics.outline(ix, iy, iw, ih, 0x99FFFFFF);
 
         int textColor = active ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
         Minecraft client = Minecraft.getInstance();
         int textW = client.font.width(label);
         int textX = Math.round(x + (width - textW) * 0.5f);
         int textY = Math.round(y + (height - 8f) * 0.5f);
-        graphics.drawString(client.font, label, textX, textY, textColor, false);
+        graphics.text(client.font, label, textX, textY, textColor, false);
     }
 
     private void drawDynamicKey(Canvas canvas, float x, float y, float width, float height, KeyVisual visual) {
@@ -387,20 +383,20 @@ public class KeystrokesRenderer {
         return Math.max(0, Math.min(y, screenH - getScaledHeight()));
     }
 
-    private void drawFallbackMouseKey(GuiGraphics graphics, Minecraft client, String label, int cps, float x, float y, float width, float height, boolean active) {
+    private void drawFallbackMouseKey(GuiGraphicsExtractor graphics, Minecraft client, String label, int cps, float x, float y, float width, float height, boolean active) {
         int ix = Math.round(x);
         int iy = Math.round(y);
         int iw = Math.round(width);
         int ih = Math.round(height);
         graphics.fill(ix, iy, ix + iw, iy + ih, active ? BG_ACTIVE_COLOR : BG_COLOR);
-        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
+        graphics.outline(ix, iy, iw, ih, 0x99FFFFFF);
 
         int textColor = active ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
         String cpsText = cps + " CPS";
         int labelX = Math.round(x + (width - client.font.width(label)) * 0.5f);
         int cpsX = Math.round(x + (width - client.font.width(cpsText)) * 0.5f);
-        graphics.drawString(client.font, label, labelX, Math.round(y + 4f), textColor, false);
-        graphics.drawString(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
+        graphics.text(client.font, label, labelX, Math.round(y + 4f), textColor, false);
+        graphics.text(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
     }
 
     private int lerpColor(int from, int to, float t) {

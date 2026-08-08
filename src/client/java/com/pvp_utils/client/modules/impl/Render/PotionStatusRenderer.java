@@ -1,8 +1,8 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+
+
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.font.FontRenderer;
@@ -16,7 +16,7 @@ import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
@@ -68,7 +68,7 @@ public class PotionStatusRenderer {
         return INSTANCE;
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         Minecraft client = Minecraft.getInstance();
         if (!Config.potionStatus) {
             destroyTexture(client);
@@ -77,7 +77,7 @@ public class PotionStatusRenderer {
             clearPendingFrame();
             return;
         }
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (client.player == null || client.level == null || false || client.gui.screen() instanceof SkiaScreen || client.gui.screen() instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -115,7 +115,7 @@ public class PotionStatusRenderer {
     public void renderFrameEnd() {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
-        if (!Config.potionStatus || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (!Config.potionStatus || false || client.gui.screen() instanceof SkiaScreen || client.gui.screen() instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -152,7 +152,7 @@ public class PotionStatusRenderer {
     public boolean shouldHideVanillaEffects() {
         if (!Config.potionStatus || !Config.potionStatusHideVanilla) return false;
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) return false;
+        if (client.player == null || client.level == null || false || client.gui.screen() instanceof SkiaScreen || client.gui.screen() instanceof NeteaseMusicScreen) return false;
         return HudEditOverlay.getInstance().isActive() || !visibleEffects(client).isEmpty();
     }
 
@@ -284,10 +284,6 @@ public class PotionStatusRenderer {
     }
 
     private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 

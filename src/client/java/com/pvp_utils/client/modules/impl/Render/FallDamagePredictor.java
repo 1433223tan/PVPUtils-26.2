@@ -3,7 +3,7 @@ package com.pvp_utils.client.modules.impl.Render;
 import com.pvp_utils.Config;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -34,7 +34,7 @@ public class FallDamagePredictor {
         return INSTANCE;
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         if (!Config.fallDamagePredict) return;
 
         Minecraft client = Minecraft.getInstance();
@@ -96,7 +96,7 @@ public class FallDamagePredictor {
         int textY = screenH / 2 + 16;
 
         int color = getDamageColor(afterProtection, player.getMaxHealth());
-        graphics.drawString(client.font, Component.literal(text), textX, textY, color, true);
+        graphics.text(client.font, Component.literal(text), textX, textY, color, true);
     }
 
     private boolean isResettingFallDistance(Level level, AABB box) {

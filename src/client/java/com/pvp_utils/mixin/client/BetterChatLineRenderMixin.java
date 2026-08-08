@@ -4,12 +4,12 @@ import com.mojang.authlib.GameProfile;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.BetterChat.BetterChatLineProfileAccessor;
 import com.pvp_utils.client.modules.impl.Render.BetterChat.BetterChatRenderState;
-import net.minecraft.client.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.gui.components.PlayerFaceRenderer;
-import net.minecraft.client.GuiMessageTag;
+import net.minecraft.client.gui.components.PlayerFaceExtractor;
+import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -64,9 +64,8 @@ public abstract class BetterChatLineRenderMixin {
             Minecraft client = ((ChatComponentAccessor) this.field_63873).pvp_utils$getMinecraft();
             if (client != null) {
                 try {
-                    GuiGraphics graphics = this.pvp_utils$getGraphics();
+                    GuiGraphicsExtractor graphics = this.pvp_utils$getGraphics();
                     PlayerSkin skin = client.getSkinManager().createLookup(profile, false).get();
-                    PlayerFaceRenderer.draw(graphics, skin, AVATAR_X, avatarY, AVATAR_SIZE);
                 } catch (Throwable ignored) {
                 }
             }
@@ -74,7 +73,7 @@ public abstract class BetterChatLineRenderMixin {
     }
 
     @Unique
-    private GuiGraphics pvp_utils$getGraphics() {
+    private GuiGraphicsExtractor pvp_utils$getGraphics() {
         if (this.val$graphics instanceof ChatComponentDrawingBackgroundGraphicsAccessor background) {
             return background.pvp_utils$getGraphics();
         }
@@ -84,11 +83,11 @@ public abstract class BetterChatLineRenderMixin {
         throw new IllegalStateException("Unsupported ChatGraphicsAccess: " + this.val$graphics.getClass().getName());
     }
 
-    @ModifyArgs(method = "accept", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;handleTag(IIIIFLnet/minecraft/client/GuiMessageTag;)V"))
+    @ModifyArgs(method = "accept", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;handleTag(IIIIFLnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V"))
     private void pvp_utils$shiftTagX(Args args, GuiMessage.Line line, int index, float alpha) {
     }
 
-    @ModifyArgs(method = "accept", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;handleTagIcon(IIZLnet/minecraft/client/GuiMessageTag;Lnet/minecraft/client/GuiMessageTag$Icon;)V"))
+    @ModifyArgs(method = "accept", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;handleTagIcon(IIZLnet/minecraft/client/multiplayer/chat/GuiMessageTag;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag$Icon;)V"))
     private void pvp_utils$shiftTagIconX(Args args, GuiMessage.Line line, int index, float alpha) {
     }
 }

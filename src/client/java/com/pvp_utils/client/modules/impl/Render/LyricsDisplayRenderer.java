@@ -19,7 +19,7 @@ import io.github.humbleui.skija.Surface;
 import io.github.humbleui.skija.SurfaceProps;
 import io.github.humbleui.skija.impl.Library;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -66,13 +66,13 @@ public class LyricsDisplayRenderer {
         return INSTANCE;
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         Minecraft client = Minecraft.getInstance();
         if (!Config.lyricsDisplay) {
             clearState();
             return;
         }
-        if (client.options.hideGui || shouldSkipScreen(client)) {
+        if (false || shouldSkipScreen(client)) {
             return;
         }
 
@@ -115,7 +115,7 @@ public class LyricsDisplayRenderer {
         renderCachedRegion(graphics, client, x, y, scale, lyrics, positionMs, alpha, currentIndex, now);
     }
 
-    private void renderCachedRegion(GuiGraphics graphics, Minecraft client, float x, float y, float scale, List<LyricLine> lyrics, long positionMs, float alpha, int currentIndex, long now) {
+    private void renderCachedRegion(GuiGraphicsExtractor graphics, Minecraft client, float x, float y, float scale, List<LyricLine> lyrics, long positionMs, float alpha, int currentIndex, long now) {
         ensureNativeLoaded();
         int regionX = Math.max(0, (int) Math.floor(x - 2f));
         int regionY = Math.max(0, (int) Math.floor(y - 2f));
@@ -180,7 +180,7 @@ public class LyricsDisplayRenderer {
         return true;
     }
 
-    private void drawCacheTexture(GuiGraphics graphics) {
+    private void drawCacheTexture(GuiGraphicsExtractor graphics) {
         if (cacheTexture == null || cachePixelW <= 0 || cachePixelH <= 0) {
             return;
         }
@@ -197,7 +197,7 @@ public class LyricsDisplayRenderer {
             int byteSize = cachePixelH * pixmap.getRowBytes();
             ByteBuffer buffer = MemoryUtil.memByteBuffer(addr, byteSize);
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(cacheTexture.getTexture(), buffer, NativeImage.Format.RGBA, 0, 0, 0, 0, cachePixelW, cachePixelH);
+                    .writeToTexture(cacheTexture.getTexture(), buffer, 0, 0, 0, 0, cachePixelW, cachePixelH);
             return true;
         } finally {
             pixmap.close();
@@ -381,8 +381,8 @@ public class LyricsDisplayRenderer {
     }
 
     private boolean shouldSkipScreen(Minecraft client) {
-        return client.screen instanceof SkiaScreen
-                || (client.screen != null && !(client.screen instanceof ChatScreen));
+        return client.gui.screen() instanceof SkiaScreen
+                || (client.gui.screen() != null && !(client.gui.screen() instanceof ChatScreen));
     }
 
     private float clamp(float value) {

@@ -18,7 +18,7 @@ import io.github.humbleui.skija.SurfaceProps;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -130,7 +130,7 @@ public final class ItemUseStatusRenderer {
         lastMixinSampleTime = System.currentTimeMillis();
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         Minecraft client = Minecraft.getInstance();
         if (!Config.itemUseStatus) {
             if (!(Config.dynamicIsland && Config.dynamicIslandItemUseStatus)) {
@@ -242,7 +242,7 @@ public final class ItemUseStatusRenderer {
 
     private UseState currentUseState(Minecraft client, long now) {
         if (client == null || client.player == null || client.level == null || client.gameMode == null) return null;
-        Screen screen = client.screen;
+        Screen screen = client.gui.screen();
         if (screen != null) return null;
 
         if (mixinActive && now - lastMixinSampleTime < 250L) {
@@ -358,7 +358,7 @@ public final class ItemUseStatusRenderer {
         return kineticWeapon == null ? 0 : kineticWeapon.computeDamageUseDuration();
     }
 
-    private void renderLite(GuiGraphics graphics, Minecraft client, float progress, float alpha) {
+    private void renderLite(GuiGraphicsExtractor graphics, Minecraft client, float progress, float alpha) {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         float scale = getScale();
@@ -371,7 +371,7 @@ public final class ItemUseStatusRenderer {
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
         graphics.pose().translate(-x, -y);
-        graphics.renderOutline(x, y, BAR_W, BAR_H, alphaBits | 0xFFFFFF);
+        graphics.outline(x, y, BAR_W, BAR_H, alphaBits | 0xFFFFFF);
 
         int innerW = BAR_W - BORDER * 2;
         int fillW = Math.max(0, Math.min(innerW, Math.round(innerW * Mth.clamp(progress, 0.0f, 1.0f))));
@@ -385,11 +385,11 @@ public final class ItemUseStatusRenderer {
         int textX = x + BORDER + fillW - textW / 2;
         textX = Math.max(x, Math.min(textX, x + BAR_W - textW));
         int textY = y + BAR_H + 4;
-        graphics.drawString(client.font, Component.literal(text), textX, textY, alphaBits | 0xFFFFFF, true);
+        graphics.text(client.font, Component.literal(text), textX, textY, alphaBits | 0xFFFFFF, true);
         graphics.pose().popMatrix();
     }
 
-    private void renderNew(GuiGraphics graphics, Minecraft client, float progress, float alpha) {
+    private void renderNew(GuiGraphicsExtractor graphics, Minecraft client, float progress, float alpha) {
         ensureNativeLoaded();
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale());
         int targetW = Math.max(1, Math.round(NEW_W * targetScale));
@@ -480,7 +480,7 @@ public final class ItemUseStatusRenderer {
             ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
             GpuTexture gpuTexture = targetTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+                    .writeToTexture(gpuTexture, buf, 0, 0, 0, 0, width, height);
         } finally {
             pixmap.close();
         }

@@ -3,7 +3,7 @@ package com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard;
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.numbers.NumberFormat;
@@ -32,7 +32,7 @@ public final class BetterScoreboardManager {
         return Config.betterScoreboard;
     }
 
-    public static void pushTransform(GuiGraphics graphics, Objective objective) {
+    public static void pushTransform(GuiGraphicsExtractor graphics, Objective objective) {
         if (!enabled()) {
             return;
         }
@@ -46,7 +46,7 @@ public final class BetterScoreboardManager {
         graphics.pose().translate(-rect.x(), -rect.y());
     }
 
-    public static void popTransform(GuiGraphics graphics) {
+    public static void popTransform(GuiGraphicsExtractor graphics) {
         if (enabled()) {
             graphics.pose().popMatrix();
         }
@@ -93,7 +93,7 @@ public final class BetterScoreboardManager {
         if (client.level != null) {
             Objective objective = client.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
             if (objective != null && client.gui != null) {
-                lastRect = measure(client.gui.getFont(), guiW > 0 ? guiW : client.getWindow().getGuiScaledWidth(), guiH > 0 ? guiH : client.getWindow().getGuiScaledHeight(), objective);
+                lastRect = measure(client.font, guiW > 0 ? guiW : client.getWindow().getGuiScaledWidth(), guiH > 0 ? guiH : client.getWindow().getGuiScaledHeight(), objective);
                 return lastRect;
             }
         }
@@ -140,8 +140,8 @@ public final class BetterScoreboardManager {
         return builder.toString();
     }
 
-    private static Rect measure(GuiGraphics graphics, Objective objective) {
-        return measure(Minecraft.getInstance().gui.getFont(), graphics.guiWidth(), graphics.guiHeight(), objective);
+    private static Rect measure(GuiGraphicsExtractor graphics, Objective objective) {
+        return measure(Minecraft.getInstance().font, graphics.guiWidth(), graphics.guiHeight(), objective);
     }
 
     private static Rect measure(Font font, int guiW, int guiH, Objective objective) {

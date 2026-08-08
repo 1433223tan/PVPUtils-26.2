@@ -1,8 +1,8 @@
 package com.pvp_utils.client.render.MainUI;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+
+
+
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
@@ -16,7 +16,7 @@ import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.SharedConstants;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ManageServerScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
@@ -151,8 +151,8 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        if (embeddedBack == null || minecraft.screen == this) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        if (embeddedBack == null || minecraft.gui.screen() == this) {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
         float layoutScale = layoutScale();
@@ -164,24 +164,24 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             if (embeddedBack != null) {
                 if (!backDispatched) {
                     backDispatched = true;
-                    if (minecraft.screen == this) {
-                        minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+                    if (minecraft.gui.screen() == this) {
+                        minecraft.gui.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
                     } else {
                         embeddedBack.run();
                     }
                 }
             } else {
-                minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+                minecraft.gui.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
             }
         }
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     }
 
     public void renderFrameEnd() {
-        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.gui.screen() != this)) {
             pendingFrame = false;
             return;
         }
@@ -324,7 +324,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             returningFromManageServer = true;
             prepareOverlayReturn();
             ServerData data = new ServerData("", "", ServerData.Type.OTHER);
-            minecraft.setScreen(new ManageServerScreen(this, Component.literal("Add Server"), ok -> {
+            minecraft.gui.setScreen(new ManageServerScreen(this, Component.literal("Add Server"), ok -> {
                 if (ok) {
                     serverList.add(data, false);
                     serverList.save();
@@ -339,7 +339,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             returningFromManageServer = true;
             prepareOverlayReturn();
             ServerData data = servers.get(selected);
-            minecraft.setScreen(new ManageServerScreen(this, Component.literal("Edit Server"), ok -> {
+            minecraft.gui.setScreen(new ManageServerScreen(this, Component.literal("Edit Server"), ok -> {
                 if (ok) {
                     serverList.replace(selected, data);
                     serverList.save();
@@ -360,7 +360,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             playClick();
             returningFromManageServer = true;
             prepareOverlayReturn();
-            minecraft.setScreen(new MultiplayerCompatibilityScreen(embeddedBack == null ? this : parent));
+            minecraft.gui.setScreen(new MultiplayerCompatibilityScreen(embeddedBack == null ? this : parent));
             return true;
         }
         if (inside(event.x(), event.y(), bottomButtonX(x, buttonW, 4), y, buttonW, 32f)) {
@@ -499,9 +499,9 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
 
     private void returnFromOverlay() {
         if (parent instanceof PVPUtilsMainUI && embeddedBack != null) {
-            minecraft.setScreen(parent);
+            minecraft.gui.setScreen(parent);
         } else {
-            minecraft.setScreen(this);
+            minecraft.gui.setScreen(this);
         }
     }
 
@@ -547,10 +547,6 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     }
 
     private int mainFramebufferId() {
-        if (minecraft.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 

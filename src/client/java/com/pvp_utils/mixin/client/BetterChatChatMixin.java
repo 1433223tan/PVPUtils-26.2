@@ -4,10 +4,10 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.BetterChat.BetterChatState;
 import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
-import net.minecraft.client.GuiMessage;
-import net.minecraft.client.GuiMessageTag;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
@@ -35,29 +35,28 @@ public abstract class BetterChatChatMixin {
     }
 
     @Inject(method = "render", at = @At("HEAD"))
-    private void pvp_utils$chatRenderStart(GuiGraphics context, Font font, int currentTick, int mouseX, int mouseY, boolean focused, boolean open, CallbackInfo ci) {
+    private void pvp_utils$chatRenderStart(GuiGraphicsExtractor context, Font font, int currentTick, int mouseX, int mouseY, boolean focused, boolean open, CallbackInfo ci) {
         if (!Config.betterChat || !Config.betterChatMessageAnimation) return;
         int offset = BetterChatState.getInstance().calculateChatDisplacementY(this.getLineHeight(), this.chatScrollbarPos);
         context.pose().translate(0, offset);
     }
 
     @Inject(method = "render", at = @At("TAIL"))
-    private void pvp_utils$chatRenderEnd(GuiGraphics context, Font font, int currentTick, int mouseX, int mouseY, boolean focused, boolean open, CallbackInfo ci) {
+    private void pvp_utils$chatRenderEnd(GuiGraphicsExtractor context, Font font, int currentTick, int mouseX, int mouseY, boolean focused, boolean open, CallbackInfo ci) {
         if (!Config.betterChat || !Config.betterChatMessageAnimation) return;
         int offset = BetterChatState.getInstance().calculateChatDisplacementY(this.getLineHeight(), this.chatScrollbarPos);
         context.pose().translate(0, -offset);
     }
 
-    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V", at = @At("HEAD"), cancellable = true)
     private void pvp_utils$nickHiderChat(Component message, MessageSignature signatureData, GuiMessageTag indicator, CallbackInfo ci) {
         Component replaced = NickHiderManager.replaceChat(message);
         if (replaced != message) {
-            ((ChatComponent) (Object) this).addMessage(replaced, signatureData, indicator);
             ci.cancel();
         }
     }
 
-    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V", at = @At("TAIL"))
+    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V", at = @At("TAIL"))
     private void pvp_utils$onAddMessage(Component message, MessageSignature signatureData, GuiMessageTag indicator, CallbackInfo ci) {
         if (!Config.betterChat || !Config.betterChatMessageAnimation) return;
         BetterChatState.getInstance().recordMessage();

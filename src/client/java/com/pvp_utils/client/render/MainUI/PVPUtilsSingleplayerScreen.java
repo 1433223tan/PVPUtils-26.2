@@ -1,8 +1,8 @@
 package com.pvp_utils.client.render.MainUI;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+
+
+
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
@@ -14,7 +14,7 @@ import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
@@ -98,7 +98,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         buttons.add(new ActionButton("Create", () -> {
             if (minecraft != null) CreateWorldScreen.openFresh(minecraft, () -> {
                 loadWorlds();
-                minecraft.setScreen(this);
+                minecraft.gui.setScreen(this);
             });
         }));
         buttons.add(new ActionButton("Edit", () -> openEditScreen()));
@@ -167,8 +167,8 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        if (embeddedBack == null || minecraft.screen == this) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        if (embeddedBack == null || minecraft.gui.screen() == this) {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
         scroll += (targetScroll - scroll) * 0.24f;
@@ -180,32 +180,32 @@ public class PVPUtilsSingleplayerScreen extends Screen {
             if (embeddedBack != null) {
                 if (!backDispatched) {
                     backDispatched = true;
-                    if (minecraft.screen == this) {
-                        minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+                    if (minecraft.gui.screen() == this) {
+                        minecraft.gui.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
                     } else {
                         embeddedBack.run();
                     }
                 }
             } else {
-                minecraft.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
+                minecraft.gui.setScreen(PVPUtilsMainUI.returningFromSingleplayer(shaderPath));
             }
         }
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     }
 
     @Override
-    protected void renderBlurredBackground(GuiGraphics guiGraphics) {
+    protected void extractBlurredBackground(GuiGraphicsExtractor guiGraphics) {
     }
 
     @Override
-    protected void renderMenuBackground(GuiGraphics guiGraphics) {
+    protected void extractMenuBackground(GuiGraphicsExtractor guiGraphics) {
     }
 
     public void renderFrameEnd() {
-        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.gui.screen() != this)) {
             pendingFrame = false;
             return;
         }
@@ -431,17 +431,17 @@ public class PVPUtilsSingleplayerScreen extends Screen {
 
     private void openSelectedWorld() {
         if (minecraft == null || selected < 0 || selected >= worlds.size()) return;
-        minecraft.createWorldOpenFlows().openWorld(worlds.get(selected).summary().getLevelId(), () -> minecraft.setScreen(this));
+        minecraft.createWorldOpenFlows().openWorld(worlds.get(selected).summary().getLevelId(), () -> minecraft.gui.setScreen(this));
     }
 
     private void openEditScreen() {
         if (minecraft == null || selected < 0 || selected >= worlds.size()) return;
         try {
             LevelStorageSource.LevelStorageAccess access = minecraft.getLevelSource().createAccess(worlds.get(selected).summary().getLevelId());
-            minecraft.setScreen(EditWorldScreen.create(minecraft, access, result -> {
+            minecraft.gui.setScreen(EditWorldScreen.create(minecraft, access, result -> {
                 access.safeClose();
                 loadWorlds();
-                minecraft.setScreen(this);
+                minecraft.gui.setScreen(this);
             }));
         } catch (IOException ignored) {
         }
@@ -450,7 +450,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     private void deleteSelectedWorld() {
         if (minecraft == null || selected < 0 || selected >= worlds.size()) return;
         WorldEntry world = worlds.get(selected);
-        minecraft.setScreen(new ConfirmScreen(yes -> {
+        minecraft.gui.setScreen(new ConfirmScreen(yes -> {
             if (yes) {
                 try (LevelStorageSource.LevelStorageAccess access = minecraft.getLevelSource().createAccess(world.summary().getLevelId())) {
                     access.deleteLevel();
@@ -459,7 +459,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
                 selected = -1;
                 loadWorlds();
             }
-            minecraft.setScreen(this);
+            minecraft.gui.setScreen(this);
         }, Component.literal("Delete World"), Component.literal(world.name())));
     }
 
@@ -500,10 +500,6 @@ public class PVPUtilsSingleplayerScreen extends Screen {
 
     private int mainFramebufferId() {
         Minecraft client = Minecraft.getInstance();
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 

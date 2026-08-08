@@ -2,7 +2,7 @@ package com.pvp_utils.client.modules.impl.Tool.FoodInfo;
 
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
@@ -42,21 +42,21 @@ public final class FoodInfoHudOverlay {
         flashAlpha = Mth.clamp(unclampedFlashAlpha, 0.0f, 1.0f) * 0.65f;
     }
 
-    public void onPreRenderFood(GuiGraphics graphics, Player player, int top, int right) {
+    public void onPreRenderFood(GuiGraphicsExtractor graphics, Player player, int top, int right) {
         if (!Config.foodInfo || player == null) {
             return;
         }
         drawExhaustionOverlay(graphics, FoodInfoHelper.exhaustion(player), right, top);
     }
 
-    public void onRenderFood(GuiGraphics graphics, Player player, int top, int right) {
+    public void onRenderFood(GuiGraphicsExtractor graphics, Player player, int top, int right) {
         if (!Config.foodInfo || player == null) {
             return;
         }
 
         Minecraft mc = Minecraft.getInstance();
         FoodData stats = player.getFoodData();
-        int ticks = mc.gui != null ? mc.gui.getGuiTicks() : 0;
+        int ticks = mc.gui != null ? 0 : 0;
         drawSaturationOverlay(graphics, 0.0f, stats.getSaturationLevel(), right, top, 1.0f, ticks, player);
 
         FoodInfoHelper.QueriedFoodResult food = FoodInfoHelper.queryHeldFood(player);
@@ -75,7 +75,7 @@ public final class FoodInfoHudOverlay {
         drawSaturationOverlay(graphics, saturationGained, stats.getSaturationLevel(), right, top, flashAlpha, ticks, player);
     }
 
-    public void onRenderHealth(GuiGraphics graphics, Player player, int left, int top) {
+    public void onRenderHealth(GuiGraphicsExtractor graphics, Player player, int left, int top) {
         if (!Config.foodInfo || player == null || !FoodInfoHelper.shouldShowEstimatedHealth(player)) {
             return;
         }
@@ -87,10 +87,10 @@ public final class FoodInfoHudOverlay {
         float gained = FoodInfoHelper.estimatedHealthIncrement(player, new ConsumableFood(food.modifiedFood(), food.consumable()));
         float currentHealth = player.getHealth();
         float modifiedHealth = Math.min(currentHealth + gained, player.getMaxHealth());
-        drawHealthOverlay(graphics, currentHealth, modifiedHealth, left, top, flashAlpha, Minecraft.getInstance().gui.getGuiTicks(), player);
+        drawHealthOverlay(graphics, currentHealth, modifiedHealth, left, top, flashAlpha, 0, player);
     }
 
-    private void drawSaturationOverlay(GuiGraphics graphics, float saturationGained, float saturationLevel, int right, int top, float alpha, int ticks, Player player) {
+    private void drawSaturationOverlay(GuiGraphicsExtractor graphics, float saturationGained, float saturationLevel, int right, int top, float alpha, int ticks, Player player) {
         if (saturationLevel + saturationGained < 0.0f) {
             return;
         }
@@ -110,7 +110,7 @@ public final class FoodInfoHudOverlay {
         }
     }
 
-    private void drawHungerOverlay(GuiGraphics graphics, int hungerRestored, int foodLevel, int right, int top, float alpha, boolean rotten, int ticks, Player player) {
+    private void drawHungerOverlay(GuiGraphicsExtractor graphics, int hungerRestored, int foodLevel, int right, int top, float alpha, boolean rotten, int ticks, Player player) {
         if (hungerRestored <= 0) {
             return;
         }
@@ -130,7 +130,7 @@ public final class FoodInfoHudOverlay {
         }
     }
 
-    private void drawHealthOverlay(GuiGraphics graphics, float health, float modifiedHealth, int left, int top, float alpha, int ticks, Player player) {
+    private void drawHealthOverlay(GuiGraphicsExtractor graphics, float health, float modifiedHealth, int left, int top, float alpha, int ticks, Player player) {
         if (modifiedHealth <= health) {
             return;
         }
@@ -151,7 +151,7 @@ public final class FoodInfoHudOverlay {
         }
     }
 
-    private void drawExhaustionOverlay(GuiGraphics graphics, float exhaustion, int right, int top) {
+    private void drawExhaustionOverlay(GuiGraphicsExtractor graphics, float exhaustion, int right, int top) {
         float ratio = Mth.clamp(exhaustion / FoodInfoHelper.MAX_EXHAUSTION, 0.0f, 1.0f);
         int width = (int) (ratio * 81.0f);
         if (width <= 0) {

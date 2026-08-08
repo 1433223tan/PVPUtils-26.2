@@ -22,7 +22,7 @@ import io.github.humbleui.skija.SurfaceProps;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -72,16 +72,16 @@ public class MusicInfoHudRenderer {
         return INSTANCE;
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         Minecraft client = Minecraft.getInstance();
         boolean editActive = HudEditOverlay.getInstance().isActive();
         if (!Config.musicInfoHud || editActive) {
             return;
         }
-        if (client.player == null || client.options.hideGui) {
+        if (client.player == null || false) {
             return;
         }
-        if (client.screen != null && !(client.screen instanceof ChatScreen)) {
+        if (client.gui.screen() != null && !(client.gui.screen() instanceof ChatScreen)) {
             return;
         }
 
@@ -100,7 +100,7 @@ public class MusicInfoHudRenderer {
         }
     }
 
-    private void renderLite(GuiGraphics graphics, Minecraft client, MusicPlaybackService player, Song song) {
+    private void renderLite(GuiGraphicsExtractor graphics, Minecraft client, MusicPlaybackService player, Song song) {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         float x = getRenderX(screenW);
@@ -114,7 +114,7 @@ public class MusicInfoHudRenderer {
         graphics.pose().popMatrix();
     }
 
-    private void drawLiteCard(GuiGraphics graphics, Minecraft client, MusicPlaybackService player, Song song) {
+    private void drawLiteCard(GuiGraphicsExtractor graphics, Minecraft client, MusicPlaybackService player, Song song) {
         int bg = Config.hudTheme == Config.HudTheme.LIGHT ? 0xDDF8FAFC : 0xCC0C1018;
         int primary = Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF111827 : 0xFFFFFFFF;
         int secondary = Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA111827 : 0xCCFFFFFF;
@@ -123,12 +123,12 @@ public class MusicInfoHudRenderer {
         graphics.fill(0, 0, Math.round(LITE_W), Math.round(LITE_H), bg);
         drawCover(graphics, song, 8, 8, COVER_SIZE);
 
-        graphics.drawString(client.font, trimVanilla(client, song.name(), 118), 56, 9, primary, false);
-        graphics.drawString(client.font, trimVanilla(client, song.displayArtist(), 118), 56, 22, secondary, false);
+        graphics.text(client.font, trimVanilla(client, song.name(), 118), 56, 9, primary, false);
+        graphics.text(client.font, trimVanilla(client, song.displayArtist(), 118), 56, 22, secondary, false);
         drawVanillaProgress(graphics, client, player, 56, 39, 122, muted);
     }
 
-    private void renderCard(GuiGraphics graphics, Minecraft client, MusicPlaybackService player, Song song, boolean blurMode) {
+    private void renderCard(GuiGraphicsExtractor graphics, Minecraft client, MusicPlaybackService player, Song song, boolean blurMode) {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         float userScale = getScale();
@@ -244,7 +244,7 @@ public class MusicInfoHudRenderer {
         lastOverlayBlurMode = blurMode;
     }
 
-    private void drawCover(GuiGraphics graphics, Song song, int x, int y, int size) {
+    private void drawCover(GuiGraphicsExtractor graphics, Song song, int x, int y, int size) {
         graphics.fill(x, y, x + size, y + size, 0xFF273244);
         Identifier texture = NeteaseMusicCovers.texture(song.image());
         if (texture != null) {
@@ -254,19 +254,19 @@ public class MusicInfoHudRenderer {
             return;
         }
         graphics.fill(x + size / 5, y + size / 5, x + size - size / 5, y + size - size / 5, 0x55FFFFFF);
-        graphics.drawString(Minecraft.getInstance().font, "♪", x + size / 2 - 4, y + size / 2 - 5, 0xFFFFFFFF, false);
+        graphics.text(Minecraft.getInstance().font, "♪", x + size / 2 - 4, y + size / 2 - 5, 0xFFFFFFFF, false);
     }
 
-    private void drawVanillaProgress(GuiGraphics graphics, Minecraft client, MusicPlaybackService player, int x, int y, int w, int muted) {
+    private void drawVanillaProgress(GuiGraphicsExtractor graphics, Minecraft client, MusicPlaybackService player, int x, int y, int w, int muted) {
         long total = Math.max(0L, player.totalDurationMs());
         long position = Math.max(0L, Math.min(player.positionMs(), Math.max(total, 0L)));
         float progress = total <= 0L ? 0f : Mth.clamp(position / (float) total, 0f, 1f);
         graphics.fill(x, y, x + w, y + 3, muted);
         graphics.fill(x, y, x + Math.round(w * progress), y + 3, ACCENT);
         String time = MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total);
-        graphics.drawString(client.font, time, x, y + 7, muted, false);
+        graphics.text(client.font, time, x, y + 7, muted, false);
         String mode = player.playbackMode().label();
-        graphics.drawString(client.font, mode, Math.round(LITE_W) - 8 - client.font.width(mode), y + 7, muted, false);
+        graphics.text(client.font, mode, Math.round(LITE_W) - 8 - client.font.width(mode), y + 7, muted, false);
     }
 
     public float getEditWidth() {
@@ -324,7 +324,7 @@ public class MusicInfoHudRenderer {
             ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
             GpuTexture gpuTexture = targetTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+                    .writeToTexture(gpuTexture, buf, 0, 0, 0, 0, width, height);
         } finally {
             pixmap.close();
         }

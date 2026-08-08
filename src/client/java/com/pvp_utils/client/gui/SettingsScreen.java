@@ -2,7 +2,7 @@ package com.pvp_utils.client.gui;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.ResetManager;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -174,7 +174,7 @@ public class SettingsScreen extends Screen {
                     Config.animationMode = Config.AnimMode.MODE_1_7;
                     Config.motionBlurAlgorithm = Config.MotionBlurAlgorithm.VELOCITY_BASED;
                     Config.save();
-                    if (this.minecraft != null) this.minecraft.setScreen(new SettingsScreen(this.lastScreen));
+                    if (this.minecraft != null) this.minecraft.gui.setScreen(new SettingsScreen(this.lastScreen));
                     inResetConfirmPage = true;
                     resettingAll = true;
                     this.init();
@@ -185,11 +185,11 @@ public class SettingsScreen extends Screen {
                 (button) -> {
                     if (this.minecraft != null) {
                         String url = "https://space.bilibili.com/3546915648047958";
-                        this.minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmLinkScreen((confirmed) -> {
+                        this.minecraft.gui.setScreen(new net.minecraft.client.gui.screens.ConfirmLinkScreen((confirmed) -> {
                             if (confirmed) {
                                 Util.getPlatform().openUri(url);
                             }
-                            this.minecraft.setScreen(this);
+                            this.minecraft.gui.setScreen(this);
                         }, url, true));
                     }
                 }).bounds(5, this.height - 50, 90, 20).build());
@@ -197,7 +197,7 @@ public class SettingsScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.literal(cn ? "Language: CN" : "Language: EN"), (button) -> {
             Config.isChinese = !Config.isChinese;
             Config.save();
-            if (this.minecraft != null) this.minecraft.setScreen(new SettingsScreen(this.lastScreen));
+            if (this.minecraft != null) this.minecraft.gui.setScreen(new SettingsScreen(this.lastScreen));
         }).bounds(5, this.height - 25, 90, 20).build());
 
         this.addRenderableWidget(Button.builder(Component.literal(cn ? "完成" : "Done"), (button) -> this.onClose())
@@ -590,17 +590,17 @@ public class SettingsScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderTransparentBackground(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        this.extractTransparentBackground(graphics);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
     }
 
     @Override
     public void onClose() {
-        if (this.minecraft != null) this.minecraft.setScreen(this.lastScreen);
+        if (this.minecraft != null) this.minecraft.gui.setScreen(this.lastScreen);
     }
 }

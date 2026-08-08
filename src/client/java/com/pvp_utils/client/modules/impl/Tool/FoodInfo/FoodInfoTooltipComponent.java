@@ -1,7 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool.FoodInfo;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.world.entity.player.Player;
@@ -59,26 +59,20 @@ public class FoodInfoTooltipComponent implements TooltipComponent, ClientTooltip
     public boolean shouldRender() {
         return hungerBars > 0;
     }
-
-    @Override
     public int getHeight(Font font) {
         return 20;
     }
-
-    @Override
     public int getWidth(Font font) {
         int hungerWidth = hungerBars * 9 + (hungerBarsText == null ? 0 : font.width(hungerBarsText));
         int saturationWidth = saturationBars * 7 + (saturationBarsText == null ? 0 : font.width(saturationBarsText));
         return Math.max(hungerWidth, saturationWidth);
     }
-
-    @Override
-    public void renderImage(Font font, int x, int y, int width, int height, GuiGraphics graphics) {
+    public void renderImage(Font font, int x, int y, int width, int height, GuiGraphicsExtractor graphics) {
         renderHunger(font, graphics, x, y);
         renderSaturation(font, graphics, x, y + 10);
     }
 
-    private void renderHunger(Font font, GuiGraphics graphics, int x, int y) {
+    private void renderHunger(Font font, GuiGraphicsExtractor graphics, int x, int y) {
         int drawX = x + (hungerBars - 1) * 9;
         boolean rotten = consumable != null && FoodInfoHelper.isRotten(consumable);
         int defaultHunger = defaultFood.nutrition();
@@ -102,12 +96,12 @@ public class FoodInfoTooltipComponent implements TooltipComponent, ClientTooltip
             graphics.pose().pushMatrix();
             graphics.pose().translate(drawX + 18, y);
             graphics.pose().scale(0.75f, 0.75f);
-            graphics.drawString(font, hungerBarsText, 2, 2, 0xFFAAAAAA, true);
+            graphics.text(font, hungerBarsText, 2, 2, 0xFFAAAAAA, true);
             graphics.pose().popMatrix();
         }
     }
 
-    private void renderSaturation(Font font, GuiGraphics graphics, int x, int y) {
+    private void renderSaturation(Font font, GuiGraphicsExtractor graphics, int x, int y) {
         int drawX = x + (saturationBars - 1) * 7;
         float saturation = modifiedFood.saturation();
         float absSaturation = Math.abs(saturation);
@@ -124,7 +118,7 @@ public class FoodInfoTooltipComponent implements TooltipComponent, ClientTooltip
             graphics.pose().pushMatrix();
             graphics.pose().translate(drawX + 14, y);
             graphics.pose().scale(0.75f, 0.75f);
-            graphics.drawString(font, saturationBarsText, 2, 1, 0xFFAAAAAA, true);
+            graphics.text(font, saturationBarsText, 2, 1, 0xFFAAAAAA, true);
             graphics.pose().popMatrix();
         }
     }

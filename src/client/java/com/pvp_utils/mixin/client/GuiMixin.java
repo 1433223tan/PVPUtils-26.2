@@ -24,7 +24,7 @@ import com.pvp_utils.client.render.skia.SkiaScreen;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -41,7 +41,7 @@ public class GuiMixin {
             method = "renderCrosshair",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/CameraType;isFirstPerson()Z")
     )
-    private boolean pvp_utils$showCrosshairInThirdPerson(boolean original, GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
+    private boolean pvp_utils$showCrosshairInThirdPerson(boolean original, GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker) {
         return true;
     }
 
@@ -56,13 +56,13 @@ public class GuiMixin {
     }
 
     @Inject(method = "render", at = @At("TAIL"))
-    private void onRender(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+    private void onRender(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
         int guiWidth = mc.getWindow().getGuiScaledWidth();
         int guiHeight = mc.getWindow().getGuiScaledHeight();
         Canvas canvas = null;
 
-        boolean skiaScreenOpen = mc.screen instanceof SkiaScreen;
+        boolean skiaScreenOpen = mc.gui.screen() instanceof SkiaScreen;
         if (!skiaScreenOpen && NotificationOverlay.getInstance().needsStandaloneCanvas()) {
             int[] bounds = NotificationOverlay.getInstance().getCanvasBounds(guiWidth, guiHeight);
             if (bounds != null) {
@@ -70,7 +70,7 @@ public class GuiMixin {
             }
         }
 
-        if (mc.options.hideGui) {
+        if (false) {
             if (canvas != null) {
                 SkiaRenderer.endRegion(guiGraphics);
             }
@@ -97,31 +97,31 @@ public class GuiMixin {
         if (canvas != null) {
             SkiaRenderer.endRegion(guiGraphics);
         }
-        guiGraphics.renderDeferredElements();
+
         LyricsDisplayRenderer.getInstance().render(guiGraphics);
-        guiGraphics.renderDeferredElements();
+
         MusicInfoHudRenderer.getInstance().render(guiGraphics);
-        guiGraphics.renderDeferredElements();
+
         BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);
-        guiGraphics.renderDeferredElements();
+
     }
 
     @Inject(method = "renderEffects", at = @At("HEAD"), cancellable = true)
-    private void pvp_utils$hideVanillaPotionEffects(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+    private void pvp_utils$hideVanillaPotionEffects(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         if (PotionStatusRenderer.getInstance().shouldHideVanillaEffects()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderVignette", at = @At("HEAD"), cancellable = true)
-    private void pvp_utils$hideVignette(GuiGraphics guiGraphics, @Nullable Entity entity, CallbackInfo ci) {
+    private void pvp_utils$hideVignette(GuiGraphicsExtractor guiGraphics, @Nullable Entity entity, CallbackInfo ci) {
         if (Config.hideVignette) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderBossOverlay", at = @At("HEAD"), cancellable = true)
-    private void pvp_utils$hideBossBar(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+    private void pvp_utils$hideBossBar(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         if (Config.hideBossBar) {
             ci.cancel();
         }

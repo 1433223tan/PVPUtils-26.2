@@ -1,9 +1,11 @@
 package com.pvp_utils.client.render.MainUI;
 
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
+
+import com.mojang.blaze3d.platform.NativeImage;
+
+
+
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.alt.AltManagerScreen;
@@ -18,7 +20,7 @@ import io.github.humbleui.types.RRect;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -167,7 +169,7 @@ public class PVPUtilsMainUI extends Screen {
             }));
         }
         buttons.add(new MenuButton("Options", "\uE8B8", () -> {
-            if (this.minecraft != null) this.minecraft.setScreen(new OptionsScreen(returnParent(), this.minecraft.options));
+            if (this.minecraft != null) this.minecraft.gui.setScreen(new OptionsScreen(returnParent(), this.minecraft.options, false));
         }));
         buttons.add(new MenuButton("Shutdown", "\uE8AC", () -> {
             if (this.minecraft != null) this.minecraft.stop();
@@ -185,7 +187,7 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         if (renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
         float layoutScale = mainLayoutScale();
         updateSettingsPanel(
@@ -202,7 +204,7 @@ public class PVPUtilsMainUI extends Screen {
         renderMainBackground(graphics, mouseX, mouseY);
         float entryAlpha = entryAlpha();
         for (int i = 0; i < buttons.size(); i++) {
-            buttons.get(i).render(graphics, mouseX, mouseY, i == pressedIndex, entryAlpha);
+            buttons.get(i).extractRenderState(graphics, mouseX, mouseY, i == pressedIndex, entryAlpha);
         }
         pendingGpuAlpha = entryAlpha;
         pendingGpuUi = true;
@@ -210,7 +212,7 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     }
 
     @Override
@@ -359,7 +361,7 @@ public class PVPUtilsMainUI extends Screen {
                 playClickSound();
                 Config.useMainUI = false;
                 Config.save();
-                if (this.minecraft != null) this.minecraft.setScreen(new TitleScreen());
+                if (this.minecraft != null) this.minecraft.gui.setScreen(new TitleScreen());
                 return true;
             }
         }
@@ -449,7 +451,7 @@ public class PVPUtilsMainUI extends Screen {
         return Math.max(0.35f, MAIN_LAYOUT_BASE_SCALE * MAIN_LAYOUT_BASE_GUI_SCALE / guiScale * fit);
     }
 
-    private void renderText(GuiGraphics graphics, float alpha) {
+    private void renderText(GuiGraphicsExtractor graphics, float alpha) {
         ensureTextTexture();
         if (textTexture == null) return;
         int color = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f) << 24 | 0xFFFFFF;
@@ -473,7 +475,7 @@ public class PVPUtilsMainUI extends Screen {
             embeddedViaFabricPlus.renderFrameEnd();
             return;
         }
-        if (!pendingGpuUi || this.minecraft == null || this.minecraft.screen != this) {
+        if (!pendingGpuUi || this.minecraft == null || this.minecraft.gui.screen() != this) {
             pendingGpuUi = false;
             return;
         }
@@ -560,14 +562,10 @@ public class PVPUtilsMainUI extends Screen {
 
     private int mainFramebufferId() {
         Minecraft client = Minecraft.getInstance();
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 
-    private void renderMainBackground(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderMainBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (isVideoBackground()) {
             ensureSelectedVideo();
             ensureVideoBackground();
@@ -631,7 +629,7 @@ public class PVPUtilsMainUI extends Screen {
         }
     }
 
-    private void renderVideoUnavailable(GuiGraphics graphics) {
+    private void renderVideoUnavailable(GuiGraphicsExtractor graphics) {
         graphics.fill(0, 0, this.width, this.height, 0xFF05070A);
         String title = Config.isChinese ? "视频背景不可用" : "Video background unavailable";
         String reason = videoBackground == null || videoBackground.getLastError().isBlank()
@@ -641,8 +639,8 @@ public class PVPUtilsMainUI extends Screen {
         int reasonW = this.minecraft.font.width(reason);
         int cx = this.width / 2;
         int cy = this.height / 2;
-        graphics.drawString(this.minecraft.font, title, cx - titleW / 2, cy - 12, 0xFFFFD176, true);
-        graphics.drawString(this.minecraft.font, reason, cx - reasonW / 2, cy + 4, 0xFFE5E7EB, true);
+        graphics.text(this.minecraft.font, title, cx - titleW / 2, cy - 12, 0xFFFFD176, true);
+        graphics.text(this.minecraft.font, reason, cx - reasonW / 2, cy + 4, 0xFFE5E7EB, true);
     }
 
     private void ensureBackgroundTexture() {
@@ -691,7 +689,7 @@ public class PVPUtilsMainUI extends Screen {
             client.getTextureManager().register(BACKGROUND_TEXTURE_ID, backgroundTexture);
             GpuTexture gpuTexture = backgroundTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buffer, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+                    .writeToTexture(gpuTexture, buffer, 0, 0, 0, 0, width, height);
             MemoryUtil.memFree(buffer);
             backgroundTextureW = width;
             backgroundTextureH = height;
@@ -702,7 +700,7 @@ public class PVPUtilsMainUI extends Screen {
         }
     }
 
-    private void renderEntryHint(GuiGraphics graphics, float entryAlpha) {
+    private void renderEntryHint(GuiGraphicsExtractor graphics, float entryAlpha) {
         if (hintStartMs <= 0L) return;
         long elapsed = System.currentTimeMillis() - hintStartMs;
         if (elapsed >= HINT_DURATION_MS) return;
@@ -730,7 +728,7 @@ public class PVPUtilsMainUI extends Screen {
         int bgX = (this.width - bgW) / 2;
         int bgY = y - 8;
         graphics.fill(bgX, bgY, bgX + bgW, bgY + bgH, (Math.round(alpha * 150f) << 24));
-        graphics.drawString(this.font, text, x, y, (a << 24) | 0xFFFFFF, false);
+        graphics.text(this.font, text, x, y, (a << 24) | 0xFFFFFF, false);
     }
 
     private float entryAlpha() {
@@ -793,7 +791,7 @@ public class PVPUtilsMainUI extends Screen {
         int byteSize = textPixelH * pixmap.getRowBytes();
         GpuTexture gpuTexture = textTexture.getTexture();
         RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, MemoryUtil.memByteBuffer(addr, byteSize), NativeImage.Format.RGBA, 0, 0, 0, 0, textPixelW, textPixelH);
+                .writeToTexture(gpuTexture, MemoryUtil.memByteBuffer(addr, byteSize), 0, 0, 0, 0, textPixelW, textPixelH);
         pixmap.close();
     }
 
@@ -816,7 +814,7 @@ public class PVPUtilsMainUI extends Screen {
             return;
         }
         if (this.minecraft != null) {
-            this.minecraft.setScreen(new TitleScreen());
+            this.minecraft.gui.setScreen(new TitleScreen());
         }
     }
 
@@ -951,25 +949,25 @@ public class PVPUtilsMainUI extends Screen {
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
-    private boolean renderEmbeddedPage(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    private boolean renderEmbeddedPage(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         if (embeddedSingleplayer != null) {
             renderMainBackground(graphics, mouseX, mouseY);
-            embeddedSingleplayer.render(graphics, mouseX, mouseY, delta);
+            embeddedSingleplayer.extractRenderState(graphics, mouseX, mouseY, delta);
             return true;
         }
         if (embeddedMultiplayer != null) {
             renderMainBackground(graphics, mouseX, mouseY);
-            embeddedMultiplayer.render(graphics, mouseX, mouseY, delta);
+            embeddedMultiplayer.extractRenderState(graphics, mouseX, mouseY, delta);
             return true;
         }
         if (embeddedAltManager != null) {
             renderMainBackground(graphics, mouseX, mouseY);
-            embeddedAltManager.render(graphics, mouseX, mouseY, delta);
+            embeddedAltManager.extractRenderState(graphics, mouseX, mouseY, delta);
             return true;
         }
         if (embeddedViaFabricPlus != null) {
             renderMainBackground(graphics, mouseX, mouseY);
-            embeddedViaFabricPlus.render(graphics, mouseX, mouseY, delta);
+            embeddedViaFabricPlus.extractRenderState(graphics, mouseX, mouseY, delta);
             return true;
         }
         return false;
@@ -1690,7 +1688,7 @@ public class PVPUtilsMainUI extends Screen {
             return mx >= x && mx <= x + w && my >= y && my <= y + h;
         }
 
-        private void render(GuiGraphics graphics, int mouseX, int mouseY, boolean pressed, float alpha) {
+        private void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean pressed, float alpha) {
             float oldHover = hover;
             hover += ((contains(mouseX, mouseY) ? 1f : 0f) - hover) * 0.18f;
             if (pressed) hover = Math.min(1f, hover + 0.08f);

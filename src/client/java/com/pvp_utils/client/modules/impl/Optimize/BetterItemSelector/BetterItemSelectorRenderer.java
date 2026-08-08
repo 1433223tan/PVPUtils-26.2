@@ -1,8 +1,8 @@
 package com.pvp_utils.client.modules.impl.Optimize.BetterItemSelector;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+
+
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
@@ -68,10 +68,6 @@ public final class BetterItemSelectorRenderer {
     }
 
     private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 

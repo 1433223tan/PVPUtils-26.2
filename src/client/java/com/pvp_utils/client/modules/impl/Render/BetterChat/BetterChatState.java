@@ -3,7 +3,7 @@ package com.pvp_utils.client.modules.impl.Render.BetterChat;
 import com.pvp_utils.Config;
 import com.pvp_utils.mixin.client.ChatHudAccessor;
 import com.pvp_utils.mixin.client.ChatHudLineAccessor;
-import net.minecraft.client.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
@@ -107,20 +107,6 @@ public final class BetterChatState {
     }
 
     public boolean hasActiveChatMessages(Minecraft client) {
-        if (client == null || client.gui == null || client.gui.getChat() == null) return false;
-        try {
-            List<?> messages = ((ChatHudAccessor) client.gui.getChat()).getVisibleMessages();
-            int ticks = client.gui.getGuiTicks();
-            final int fadeTicks = 200;
-            for (Object msg : messages) {
-                if (msg instanceof GuiMessage line) {
-                    int creationTick = ((ChatHudLineAccessor) (Object) line).getCreationTick();
-                    if (ticks - creationTick < fadeTicks) {
-                        return true;
-                    }
-                }
-            }
-        } catch (Throwable ignored) {}
         return false;
     }
 }

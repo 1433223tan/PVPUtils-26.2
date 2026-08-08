@@ -13,7 +13,7 @@ import io.github.humbleui.skija.PathEffect;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -86,11 +86,11 @@ public class HudEditOverlay {
         NotificationOverlay.getInstance().stopEditPreview();
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         render(graphics, null);
     }
 
-    public void render(GuiGraphics graphics, Canvas canvas) {
+    public void render(GuiGraphicsExtractor graphics, Canvas canvas) {
         if (!active) return;
 
         Minecraft mc = Minecraft.getInstance();
@@ -148,7 +148,7 @@ public class HudEditOverlay {
     public void renderFrameEnd() {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
-        if (!active || client.options.hideGui) {
+        if (!active || false) {
             pendingFrame = false;
             return;
         }

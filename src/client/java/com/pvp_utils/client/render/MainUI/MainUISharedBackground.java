@@ -2,7 +2,7 @@ package com.pvp_utils.client.render.MainUI;
 
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 
@@ -41,7 +41,7 @@ public final class MainUISharedBackground {
                 && client.level == null;
     }
 
-    public static void render(GuiGraphics graphics, int mouseX, int mouseY) {
+    public static void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         Minecraft client = Minecraft.getInstance();
         graphics.fill(0, 0, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight(), 0xFF000000);
         if (Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.VIDEO) {
@@ -78,7 +78,7 @@ public final class MainUISharedBackground {
         return Config.mainUIGlslShader;
     }
 
-    private static void renderVideoUnavailable(GuiGraphics graphics, Minecraft client) {
+    private static void renderVideoUnavailable(GuiGraphicsExtractor graphics, Minecraft client) {
         int width = client.getWindow().getGuiScaledWidth();
         int height = client.getWindow().getGuiScaledHeight();
         graphics.fill(0, 0, width, height, 0xFF05070A);
@@ -88,8 +88,8 @@ public final class MainUISharedBackground {
                 : videoBackground.getLastError();
         int x = width / 2;
         int y = height / 2;
-        graphics.drawString(client.font, title, x - client.font.width(title) / 2, y - 12, 0xFFFFD176, true);
-        graphics.drawString(client.font, reason, x - client.font.width(reason) / 2, y + 4, 0xFFE5E7EB, true);
+        graphics.text(client.font, title, x - client.font.width(title) / 2, y - 12, 0xFFFFD176, true);
+        graphics.text(client.font, reason, x - client.font.width(reason) / 2, y + 4, 0xFFE5E7EB, true);
     }
 
     public static void close() {

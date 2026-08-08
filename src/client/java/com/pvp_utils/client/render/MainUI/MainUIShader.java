@@ -5,7 +5,7 @@ import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -110,7 +110,7 @@ public final class MainUIShader {
         return fragmentPath;
     }
 
-    public void render(GuiGraphics graphics, double mouseX, double mouseY) {
+    public void render(GuiGraphicsExtractor graphics, double mouseX, double mouseY) {
         ensureCompiled();
         if (failed || program == 0) {
             fallback(graphics);
@@ -171,7 +171,7 @@ public final class MainUIShader {
 
         GpuTexture gpuTexture = dynamicTexture.getTexture();
         RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, readBuffer, NativeImage.Format.RGBA, 0, 0, 0, 0, fbW, fbH);
+                .writeToTexture(gpuTexture, readBuffer, 0, 0, 0, 0, fbW, fbH);
         graphics.blit(textureId, 0, 0, guiW, guiH, 0f, 1f, 1f, 0f);
     }
 
@@ -336,14 +336,14 @@ public final class MainUIShader {
         return source.replaceAll("(?m)^\\s*#version\\s+\\d+.*\\R?", "");
     }
 
-    private void fallback(GuiGraphics graphics) {
+    private void fallback(GuiGraphicsExtractor graphics) {
         int mid = Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2;
         int w = Minecraft.getInstance().getWindow().getGuiScaledWidth();
         int h = Minecraft.getInstance().getWindow().getGuiScaledHeight();
         graphics.fillGradient(0, 0, w, mid, 0xFF330000, 0xFF111111);
         graphics.fillGradient(0, mid, w, h, 0xFF111111, 0xFF330000);
         graphics.fill(18, 18, Math.min(w - 18, 420), 74, 0xCC000000);
-        graphics.drawString(Minecraft.getInstance().font, Component.literal("PVPUtils MainUI fallback"), 28, 28, 0xFFFF5555, false);
-        graphics.drawString(Minecraft.getInstance().font, Component.literal(fragmentPath), 28, 48, 0xFFFFFFFF, false);
+        graphics.text(Minecraft.getInstance().font, Component.literal("PVPUtils MainUI fallback"), 28, 28, 0xFFFF5555, false);
+        graphics.text(Minecraft.getInstance().font, Component.literal(fragmentPath), 28, 48, 0xFFFFFFFF, false);
     }
 }

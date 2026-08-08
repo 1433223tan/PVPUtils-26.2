@@ -1,8 +1,8 @@
 package com.pvp_utils.client.alt;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+
+
+
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
@@ -15,7 +15,7 @@ import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
@@ -146,8 +146,8 @@ public final class AltManagerScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        if (embeddedBack == null || minecraft.screen == this) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        if (embeddedBack == null || minecraft.gui.screen() == this) {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
         this.mouseX = mouseX;
@@ -160,20 +160,20 @@ public final class AltManagerScreen extends Screen {
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null && !backDispatched) {
             backDispatched = true;
-            if (embeddedBack != null && minecraft.screen != this) {
+            if (embeddedBack != null && minecraft.gui.screen() != this) {
                 embeddedBack.run();
             } else {
-                minecraft.setScreen(parent);
+                minecraft.gui.setScreen(parent);
             }
         }
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     }
 
     public void renderFrameEnd() {
-        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.gui.screen() != this)) {
             pendingFrame = false;
             return;
         }
@@ -930,10 +930,6 @@ public final class AltManagerScreen extends Screen {
     }
 
     private int mainFramebufferId() {
-        if (minecraft.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
-        }
         return 0;
     }
 

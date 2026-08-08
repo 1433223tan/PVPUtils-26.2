@@ -10,7 +10,7 @@ Starting from PVPUtils-v1.6-beta.1, PVPUtils introduces a built-in IRC system. T
 
 ## Introduction
 
-PVPUtils is a client-side utility mod for Minecraft 1.21.11 Fabric. It brings practical survival and PVP tools to the vanilla game, together with a wide range of polished visual components. All interfaces and visual elements are powered by Skija, balancing refined visuals with smooth performance. The mod also supports automatic update checks, so you do not need to manually visit mod platforms to see whether a new version is available. You can also run a command to check for updates manually.
+PVPUtils is a client-side utility mod for Minecraft 26.2 Fabric. It brings practical survival and PVP tools to the vanilla game, together with a wide range of polished visual components. All interfaces and visual elements are powered by Skija, balancing refined visuals with smooth performance. The mod also supports automatic update checks, so you do not need to manually visit mod platforms to see whether a new version is available. You can also run a command to check for updates manually.
 
 ## Features
 
@@ -42,7 +42,7 @@ PVPUtils changes this by being a source-available client-side mod. You may view,
 
 ## Compatibility
 
-The mod currently supports Minecraft 1.21.11 Fabric only. It supports Windows 10 and later, and does not currently support mobile platforms or Bud Island. Thanks to the open-source nature of the project, community versions have already implemented support for related platforms.
+The mod currently supports Minecraft 26.2 Fabric only. It supports Windows 10 and later, and does not currently support mobile platforms or Bud Island. Thanks to the open-source nature of the project, community versions have already implemented support for related platforms.
 
 Backports to Minecraft 1.20.4 or 1.20.6 Fabric are planned. There are currently no plans to port to higher Minecraft versions, because newer versions temporarily lack a strong PVP-oriented mod ecosystem.
 

@@ -13,8 +13,8 @@ import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.Rect;
 import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.PlayerFaceRenderer;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.PlayerFaceExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.ClientAsset;
@@ -217,7 +217,7 @@ public class TargetHudRenderer {
         }
     }
 
-    public void render(GuiGraphics graphics) {
+    public void render(GuiGraphicsExtractor graphics) {
         long now = System.currentTimeMillis();
         Minecraft client = Minecraft.getInstance();
         boolean editActive = HudEditOverlay.getInstance().isActive() && Config.targetHud;
@@ -280,7 +280,7 @@ public class TargetHudRenderer {
         renderLite(graphics, client, alpha, now);
     }
 
-    private void renderLite(GuiGraphics graphics, Minecraft client, float alpha, long now) {
+    private void renderLite(GuiGraphicsExtractor graphics, Minecraft client, float alpha, long now) {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         float hudScale = Math.max(0.5f, Config.targetHudScale);
@@ -302,7 +302,7 @@ public class TargetHudRenderer {
         int whiteWithAlpha = alphaBits | 0xFFFFFF;
         int grayWithAlpha = alphaBits | 0x444444;
 
-        graphics.renderOutline(x, y, HUD_WIDTH, HUD_HEIGHT, whiteWithAlpha);
+        graphics.outline(x, y, HUD_WIDTH, HUD_HEIGHT, whiteWithAlpha);
 
         int avatarX = x + BORDER + PADDING;
         int avatarY = y + (HUD_HEIGHT - AVATAR_SIZE) / 2;
@@ -332,14 +332,13 @@ public class TargetHudRenderer {
         if (target instanceof Player player) {
             try {
                 PlayerSkin skin = resolvePlayerSkin(client, player);
-                PlayerFaceRenderer.draw(graphics, skin, avatarX, avatarY, AVATAR_SIZE);
             } catch (Exception e) {
                 graphics.fill(avatarX, avatarY, avatarX2, avatarY2, alphaBits | 0x000000);
             }
         } else {
-            SpawnEggItem eggItem = SpawnEggItem.byId(target.getType());
+            net.minecraft.world.item.Item eggItem = net.minecraft.world.item.Items.EGG;
             if (eggItem != null) {
-                graphics.renderFakeItem(new ItemStack(eggItem), iconX, iconY);
+                graphics.fakeItem(new ItemStack(eggItem), iconX, iconY);
             } else {
                 graphics.fill(avatarX, avatarY, avatarX2, avatarY2, alphaBits | 0x000000);
             }
@@ -357,7 +356,7 @@ public class TargetHudRenderer {
 
         String name = target.getDisplayName().getString();
         if (name.length() > 16) name = name.substring(0, 16) + "..";
-        graphics.drawString(client.font, Component.literal(name), infoX, y + PADDING + 2, whiteWithAlpha, false);
+        graphics.text(client.font, Component.literal(name), infoX, y + PADDING + 2, whiteWithAlpha, false);
 
         if (Config.attackReachDisplay && lastAttackDistance >= 0f && now - lastAttackDistanceTime < ATTACK_DISTANCE_DISPLAY_DURATION) {
             long elapsed = now - lastAttackDistanceTime;
@@ -367,7 +366,7 @@ public class TargetHudRenderer {
             int distColor = (distAlphaInt << 24) | 0xFFAA00;
             String distText = String.format(java.util.Locale.ROOT, "%.2fm", lastAttackDistance);
             int nameWidth = client.font.width(name);
-            graphics.drawString(client.font, Component.literal(distText), infoX + nameWidth + 4, y + PADDING + 2, distColor, false);
+            graphics.text(client.font, Component.literal(distText), infoX + nameWidth + 4, y + PADDING + 2, distColor, false);
         }
 
         float maxHealth = target.getMaxHealth();
@@ -399,12 +398,12 @@ public class TargetHudRenderer {
             int statusColor = selfHealth > currentHealth ? (alphaBits | 0x55FF55) : (alphaBits | 0xFF5555);
 
             int textWidth = client.font.width(statusText);
-            graphics.drawString(client.font, Component.literal(statusText), x + HUD_WIDTH - PADDING - textWidth, y + PADDING + 2, statusColor, false);
+            graphics.text(client.font, Component.literal(statusText), x + HUD_WIDTH - PADDING - textWidth, y + PADDING + 2, statusColor, false);
         }
         graphics.pose().popMatrix();
     }
 
-    private void renderNew(GuiGraphics graphics, Minecraft client, float alpha, long now, boolean blurMode) {
+    private void renderNew(GuiGraphicsExtractor graphics, Minecraft client, float alpha, long now, boolean blurMode) {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         float hudScale = Math.max(0.5f, Config.targetHudScale);
@@ -487,15 +486,14 @@ public class TargetHudRenderer {
                 PlayerSkin skin = resolvePlayerSkin(client, player);
                 playerRoundedAvatarRendered = renderRoundedPlayerAvatarTexture(graphics, client, skin, avatarX + avatarDrawInset, avatarY + avatarDrawInset, avatarDrawSize);
                 if (!playerRoundedAvatarRendered) {
-                    PlayerFaceRenderer.draw(graphics, skin, avatarX + avatarDrawInset, avatarY + avatarDrawInset, avatarDrawSize);
                 }
             } catch (Exception e) {
                 graphics.fill(avatarX + avatarDrawInset, avatarY + avatarDrawInset, avatarX + avatarDrawInset + avatarDrawSize, avatarY + avatarDrawInset + avatarDrawSize, alphaBits | 0x111111);
             }
         } else {
-            SpawnEggItem eggItem = SpawnEggItem.byId(target.getType());
+            net.minecraft.world.item.Item eggItem = net.minecraft.world.item.Items.EGG;
             if (eggItem != null) {
-                graphics.renderFakeItem(new ItemStack(eggItem), avatarX + 11, avatarY + 11);
+                graphics.fakeItem(new ItemStack(eggItem), avatarX + 11, avatarY + 11);
             } else {
                 graphics.fill(avatarX + avatarDrawInset, avatarY + avatarDrawInset, avatarX + avatarDrawInset + avatarDrawSize, avatarY + avatarDrawInset + avatarDrawSize, alphaBits | 0x111111);
             }
@@ -511,7 +509,7 @@ public class TargetHudRenderer {
         graphics.pose().popMatrix();
     }
 
-    private boolean renderRoundedPlayerAvatarTexture(GuiGraphics graphics, Minecraft client, PlayerSkin skin, int x, int y, int size) {
+    private boolean renderRoundedPlayerAvatarTexture(GuiGraphicsExtractor graphics, Minecraft client, PlayerSkin skin, int x, int y, int size) {
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
         int targetW = Math.max(1, Math.round(size * targetScale));
         int targetH = Math.max(1, Math.round(size * targetScale));
@@ -1034,7 +1032,7 @@ public class TargetHudRenderer {
             ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
             GpuTexture gpuTexture = targetTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+                    .writeToTexture(gpuTexture, buf, 0, 0, 0, 0, width, height);
         } finally {
             pixmap.close();
         }
