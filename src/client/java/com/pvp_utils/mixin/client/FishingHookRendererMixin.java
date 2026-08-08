@@ -43,7 +43,7 @@ public abstract class FishingHookRendererMixin {
     }
 
     @ModifyArg(
-            method = "submit",
+            method = "lambda$submit$1",
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/renderer/entity/FishingHookRenderer;stringVertex(FFFLcom/mojang/blaze3d/vertex/VertexConsumer;Lcom/mojang/blaze3d/vertex/PoseStack$Pose;FFF)V"

@@ -17,6 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -24,16 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(EntityRenderer.class)
 public class EntityRendererMixin {
-    @Inject(method = "submitNameDisplay", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER))
-    private void pvp_utils$scaleNameTag(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
-        if (!Config.nameTag) return;
-        if (Config.nameTagOnlyPlayer && !((NameTagPlayerFilterState) state).pvp_utils$isNameTagRealPlayer()) return;
-        float scale = Math.max(0.5f, Math.min(3.0f, Config.nameTagScale));
-        if (Config.nameTagDynamicScale) {
-            scale *= Math.max(0.5f, Math.min(8.0f, (float) (Math.sqrt(Math.max(0.0, state.distanceToCameraSq)) / 8.0)));
-        }
-        poseStack.scale(scale, scale, scale);
-    }
+    @Unique private boolean pvp_utils$nameTagScalePushed;
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void pvp_utils$captureNameTagPlayerFilter(Entity entity, EntityRenderState state, float tickProgress, CallbackInfo ci) {
@@ -42,11 +34,26 @@ public class EntityRendererMixin {
 
     @Inject(method = "submitNameDisplay", at = @At("HEAD"))
     private void pvp_utils$beginNameTagPlayerFilter(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
-        NameTagPlayerFilterContext.setRealPlayer(((NameTagPlayerFilterState) state).pvp_utils$isNameTagRealPlayer());
+        boolean realPlayer = ((NameTagPlayerFilterState) state).pvp_utils$isNameTagRealPlayer();
+        NameTagPlayerFilterContext.setRealPlayer(realPlayer);
+        pvp_utils$nameTagScalePushed = Config.nameTag && (!Config.nameTagOnlyPlayer || realPlayer);
+        if (!pvp_utils$nameTagScalePushed) {
+            return;
+        }
+        float scale = Math.max(0.5f, Math.min(3.0f, Config.nameTagScale));
+        if (Config.nameTagDynamicScale) {
+            scale *= Math.max(0.5f, Math.min(8.0f, (float) (Math.sqrt(Math.max(0.0, state.distanceToCameraSq)) / 8.0)));
+        }
+        poseStack.pushPose();
+        poseStack.scale(scale, scale, scale);
     }
 
     @Inject(method = "submitNameDisplay", at = @At("RETURN"))
     private void pvp_utils$endNameTagPlayerFilter(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
+        if (pvp_utils$nameTagScalePushed) {
+            poseStack.popPose();
+            pvp_utils$nameTagScalePushed = false;
+        }
         NameTagPlayerFilterContext.clear();
     }
 
