@@ -1,33 +1,23 @@
 package com.pvp_utils.mixin.client;
 
-import com.mojang.blaze3d.textures.GpuTextureView;
 import com.pvp_utils.client.modules.impl.Render.CustomEnchantmentGlint;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import org.spongepowered.asm.mixin.Final;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyArgs;
-import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 
-@Mixin(RenderType.class)
+@Mixin(RenderSetup.class)
 public class RenderTypeMixin {
-    @Shadow @Final protected String name;
-
-    @ModifyArgs(
-            method = "draw(Lcom/mojang/blaze3d/vertex/MeshData;)V",
+    @ModifyArg(
+            method = "prepareTextures",
             at = @At(
                     value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/systems/RenderPass;bindTexture(Ljava/lang/String;Lcom/mojang/blaze3d/textures/GpuTextureView;Lcom/mojang/blaze3d/textures/GpuSampler;)V"
-            )
+                    target = "Lnet/minecraft/client/renderer/texture/TextureManager;getTexture(Lnet/minecraft/resources/Identifier;)Lnet/minecraft/client/renderer/texture/AbstractTexture;"
+            ),
+            index = 0
     )
-    private void pvp_utils$replaceGlintTexture(Args args) {
-        if (!"Sampler0".equals(args.get(0))) {
-            return;
-        }
-        GpuTextureView textureView = CustomEnchantmentGlint.textureViewFor(name);
-        if (textureView != null) {
-            args.set(1, textureView);
-        }
+    private Identifier pvp_utils$replaceGlintTexture(Identifier original) {
+        return CustomEnchantmentGlint.replaceTexture(original);
     }
 }

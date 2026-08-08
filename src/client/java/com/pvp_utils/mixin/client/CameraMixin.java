@@ -4,6 +4,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.MotionCamera.MotionCameraManager;
 import com.pvp_utils.client.modules.impl.Tool.Freelook.FreelookManager;
 import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.Entity;
@@ -27,8 +28,10 @@ public abstract class CameraMixin {
     @Shadow private boolean detached;
     @Shadow private float eyeHeight;
     @Shadow protected abstract void setPosition(Vec3 position);
+    @Shadow protected abstract void setRotation(float yaw, float pitch);
     @Shadow protected abstract void move(float zoom, float y, float x);
     @Shadow protected abstract float getMaxZoom(float desiredCameraDistance);
+    @Shadow public abstract float getCameraEntityPartialTicks(DeltaTracker deltaTracker);
     @Unique private final Pose[] pvpUtils$lastPoses = new Pose[2];
 
     @Inject(method = "tick", at = @At("HEAD"))
@@ -58,6 +61,36 @@ public abstract class CameraMixin {
         }
 
         return Config.sneakAnimationSpeed >= 1.0f ? 0.0f : getSneakAnimationModifier();
+    }
+
+    @Inject(method = "update", at = @At("TAIL"))
+    private void pvp_utils$applyCameraFeatures(DeltaTracker deltaTracker, CallbackInfo ci) {
+        Minecraft client = Minecraft.getInstance();
+        if (this.entity != client.player) {
+            return;
+        }
+
+        if (FreelookManager.isActive()) {
+            this.setRotation(FreelookManager.getYaw(), FreelookManager.getPitch());
+        }
+
+        float partialTick = this.getCameraEntityPartialTicks(deltaTracker);
+        if (MotionCameraManager.active(this.detached, this.entity)) {
+            this.setPosition(MotionCameraManager.updateAnchor(this.entity, partialTick));
+            float smoothDistance = MotionCameraManager.smoothDistance(partialTick, true);
+            this.move(-this.getMaxZoom(smoothDistance), 0.0f, 0.0f);
+            return;
+        }
+        if (Config.motionCamera && MotionCameraManager.transitioning()) {
+            float smoothDistance = MotionCameraManager.smoothDistance(partialTick, false);
+            if (smoothDistance > 0.001f) {
+                this.move(-this.getMaxZoom(smoothDistance), 0.0f, 0.0f);
+            }
+            return;
+        }
+        if (!Config.motionCamera) {
+            MotionCameraManager.reset();
+        }
     }
 
     private float getCustomEyeHeight(LocalPlayer player, Pose pose) {

@@ -7,6 +7,8 @@ import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
 
 public final class CustomEnchantmentGlint {
+    private static final Identifier VANILLA_ARMOR_GLINT = Identifier.withDefaultNamespace("textures/misc/enchanted_glint_armor.png");
+    private static final Identifier VANILLA_ITEM_GLINT = Identifier.withDefaultNamespace("textures/misc/enchanted_glint_item.png");
     private static final Identifier ARMOR_GLINT = Identifier.fromNamespaceAndPath("pvp_utils", "enchanted/enchanted_glint_armor.png");
     private static final Identifier ENTITY_GLINT_TEXTURE = Identifier.fromNamespaceAndPath("pvp_utils", "enchanted/enchanted_glint_entity.png");
     private static final Identifier ITEM_GLINT = Identifier.fromNamespaceAndPath("pvp_utils", "enchanted/enchanted_glint_item.png");
@@ -36,6 +38,19 @@ public final class CustomEnchantmentGlint {
             case "glint", "glint_translucent" -> itemTextureView;
             default -> null;
         };
+    }
+
+    public static Identifier replaceTexture(Identifier original) {
+        if (!Config.customEnchantmentGlint || original == null) {
+            return original;
+        }
+        if (VANILLA_ARMOR_GLINT.equals(original)) {
+            return ARMOR_GLINT;
+        }
+        if (VANILLA_ITEM_GLINT.equals(original)) {
+            return ITEM_GLINT;
+        }
+        return original;
     }
 
     private static GpuTextureView loadTextureView(Minecraft client, Identifier texture) {

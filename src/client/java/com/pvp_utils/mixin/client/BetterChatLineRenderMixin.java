@@ -27,7 +27,7 @@ public abstract class BetterChatLineRenderMixin {
     @Shadow @Final private int val$entryHeight;
     @Shadow @Final private int val$entryBottomToMessageY;
     @Shadow @Final private ChatComponent.ChatGraphicsAccess val$graphics;
-    @Shadow @Final private ChatComponent field_63873;
+    @Shadow @Final private ChatComponent this$0;
 
     @Unique private static final int AVATAR_SIZE = 8;
     @Unique private static final int AVATAR_GAP = 2;
@@ -61,11 +61,12 @@ public abstract class BetterChatLineRenderMixin {
             int lineTop = lineBottom - this.val$entryHeight;
             int avatarY = lineTop + ((this.val$entryHeight - AVATAR_SIZE) / 2);
 
-            Minecraft client = ((ChatComponentAccessor) this.field_63873).pvp_utils$getMinecraft();
+            Minecraft client = ((ChatComponentAccessor) this.this$0).pvp_utils$getMinecraft();
             if (client != null) {
                 try {
                     GuiGraphicsExtractor graphics = this.pvp_utils$getGraphics();
                     PlayerSkin skin = client.getSkinManager().createLookup(profile, false).get();
+                    PlayerFaceExtractor.extractRenderState(graphics, skin, AVATAR_X, avatarY, AVATAR_SIZE);
                 } catch (Throwable ignored) {
                 }
             }

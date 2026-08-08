@@ -7,7 +7,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Optimize.BetterItemSelector.BetterItemSelectorRenderer;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -17,14 +17,14 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(value = Gui.class, priority = 999)
+@Mixin(value = Hud.class, priority = 999)
 public class HotbarSmoothMixin {
     @Unique private static final int SLOT_WIDTH = 20;
     @Unique private static final int SLOT_COUNT = 9;
     @Unique private static final int ROLLOVER_SPACE = 4;
     @Unique private float pvp_utils$smoothSelectorPos;
 
-    @WrapMethod(method = "renderHotbarAndDecorations")
+    @WrapMethod(method = "extractHotbarAndDecorations")
     private void pvp_utils$wrapHotbarAndDecorations(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker, Operation<Void> operation) {
         if (!Config.smoothHotbarScrolling && !Config.betterItemSelector) {
             operation.call(graphics, deltaTracker);
@@ -45,7 +45,7 @@ public class HotbarSmoothMixin {
     }
 
     @WrapOperation(
-            method = "renderItemHotbar",
+            method = "extractItemHotbar",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V", ordinal = 0)
     )
     private void pvp_utils$drawBetterHotbar(GuiGraphicsExtractor graphics, RenderPipeline pipeline, Identifier texture, int x, int y, int width, int height, Operation<Void> operation) {
@@ -57,7 +57,7 @@ public class HotbarSmoothMixin {
     }
 
     @WrapOperation(
-            method = "renderItemHotbar",
+            method = "extractItemHotbar",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V", ordinal = 1)
     )
     private void pvp_utils$moveSelector(GuiGraphicsExtractor graphics, RenderPipeline pipeline, Identifier texture, int x, int y, int width, int height, Operation<Void> operation) {
