@@ -5,13 +5,11 @@
     "mixins":  [
                    "GlDeviceAccessor",
                    "FrameEndMinecraftMixin",
-                   "RenderTypeMixin",
                    "RenderTypeStateAccessor",
                    "RenderSetupAccessor",
                    "RenderTextureBindingAccessor",
                    "ItemInHandRendererMixin",
                    "FishingHookRendererMixin",
-                   "ItemFeatureRendererMixin",
                    "ItemModelResolverMixin",
                    "ItemStackLayerRenderStateMixin",
                    "ItemStackRenderStateAccessor",
@@ -28,7 +26,6 @@
                    "MultiPlayerGameModeAccessor",
                    "BlockItemMixin",
                    "PlayerPoseAccessMixin",
-                   "CameraMixin",
                    "EntityRenderStateMixin",
                    "ArmorTransparencyRenderStateMixin",
                    "ArmorTransparencyLivingEntityRendererMixin",
@@ -45,7 +42,6 @@
                    "GuiMixin",
                    "PlayerTabOverlayMixin",
                    "ServerReconfigScreenMixin",
-                   "HotbarSmoothMixin",
                    "JoinMultiplayerScreenMixin",
                    "ViaFabricPlusJoinMultiplayerMixin",
                    "ViaFabricPlusDirectJoinMixin",
@@ -57,7 +53,6 @@
                    "ConnectScreenMixin",
                    "DisconnectedScreenMixin",
                    "FoodInfoFoodDataMixin",
-                   "FoodInfoGuiMixin",
                    "FoodInfoItemStackMixin",
                    "FoodInfoClientTooltipComponentMixin",
                    "ChatScreenMixin",
@@ -82,7 +77,6 @@
                    "BetterChatGuiMessageLineMixin",
                    "BetterChatTextCollectorMixin",
                    "BetterChatPlayerChatMessageMixin",
-                   "BetterScoreboardGuiMixin",
                    "CreativeModeTabMixin",
                    "BetterMouseLogicContainerAccessor",
                    "BetterMouseLogicContainerMixin",
@@ -95,9 +89,15 @@
                    "LightTextureMixin",
                    "ScreenEffectRendererMixin",
                    "GameRendererMixin",
-                   "ZoomGameRendererMixin"
+                   "ZoomGameRendererMixin",
+                   "CustomBlockOutlineLevelRendererMixin",
+                   "WorldRenderLevelRendererMixin",
+                   "ClientConfigurationMixin",
+                   "MotionBlurGameRendererMixin",
+                   "MotionBlurLevelRendererMixin",
+                   "InputMethodFixMinecraftMixin"
                ],
     "injectors":  {
-                      "defaultRequire":  0
+                      "defaultRequire":  1
                   }
 }

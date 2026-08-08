@@ -15,14 +15,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class BetterChatScreenMixin {
     @Unique private final Minecraft client = Minecraft.getInstance();
 
-    @Inject(method = "render", at = @At("HEAD"))
+    @Inject(method = "extractRenderState", at = @At("HEAD"))
     private void pvp_utils$renderStart(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!Config.betterChat || !Config.betterChatInputAnimation) return;
         BetterChatState.getInstance().beginChatScreenIfNeeded(client);
         context.pose().translate(0, BetterChatState.getInstance().calculateChatScreenOffsetY(client));
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void pvp_utils$renderEnd(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!Config.betterChat || !Config.betterChatInputAnimation) return;
         if (BetterChatState.getInstance().shouldCloseChatScreen() && client != null) {

@@ -12,6 +12,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector4f;
@@ -32,8 +33,11 @@ public class MotionBlurLevelRendererMixin {
     @Unique private double pvp_utils$prevCamZ;
     @Unique private boolean pvp_utils$previousFrameReady = false;
 
-    @Inject(method = "renderLevel", at = @At("HEAD"))
-    private void pvp_utils$onRenderLevelHead(GraphicsResourceAllocator resourceAllocator, DeltaTracker deltaTracker, boolean renderOutline, Camera camera, Matrix4f modelViewMatrix, Matrix4f projectionMatrix, Matrix4f frustumMatrix, GpuBufferSlice terrainFog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci) {
+    @Inject(method = "render", at = @At("HEAD"))
+    private void pvp_utils$onRenderLevelHead(GraphicsResourceAllocator resourceAllocator, DeltaTracker deltaTracker, boolean renderOutline, CameraRenderState cameraState, Matrix4fc frustumMatrix, GpuBufferSlice terrainFog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci) {
+        Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
+        Matrix4fc modelViewMatrix = cameraState.viewRotationMatrix;
+        Matrix4fc projectionMatrix = cameraState.projectionMatrix;
         DamageNumberRenderer.getInstance().captureCamera(modelViewMatrix, projectionMatrix, camera);
         boolean blurActive = MotionBlurManager.shouldRun();
         var camPos = camera.position();
@@ -79,8 +83,8 @@ public class MotionBlurLevelRendererMixin {
         MotionBlurManager.applyPreEntityBlur();
     }
 
-    @Inject(method = "renderLevel", at = @At("TAIL"))
-    private void pvp_utils$onRenderLevelTail(GraphicsResourceAllocator resourceAllocator, DeltaTracker deltaTracker, boolean renderOutline, Camera camera, Matrix4f modelViewMatrix, Matrix4f projectionMatrix, Matrix4f frustumMatrix, GpuBufferSlice terrainFog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci) {
+    @Inject(method = "render", at = @At("TAIL"))
+    private void pvp_utils$onRenderLevelTail(GraphicsResourceAllocator resourceAllocator, DeltaTracker deltaTracker, boolean renderOutline, CameraRenderState cameraState, Matrix4fc frustumMatrix, GpuBufferSlice terrainFog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci) {
         if (MotionBlurManager.shouldRun() && !pvp_utils$shouldUseSpecialSingleBlur()) {
             MotionBlurManager.applyPostRenderVelocityOnly();
         }

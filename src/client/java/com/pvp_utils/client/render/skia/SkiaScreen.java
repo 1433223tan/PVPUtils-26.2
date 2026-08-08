@@ -8,9 +8,9 @@ import net.minecraft.network.chat.Component;
 public abstract class SkiaScreen extends Screen {
 
     protected final Screen parent;
-    private boolean redrawRequested = true;
-    private int lastFrameWidth = -1;
-    private int lastFrameHeight = -1;
+    protected boolean redrawRequested = true;
+    protected int lastFrameWidth = -1;
+    protected int lastFrameHeight = -1;
 
     protected SkiaScreen(Component title, Screen parent) {
         super(title);

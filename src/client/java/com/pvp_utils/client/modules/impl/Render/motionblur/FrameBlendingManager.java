@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Render.motionblur;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.framegraph.FramePass;
 import com.mojang.blaze3d.pipeline.MainTarget;
@@ -328,7 +329,7 @@ public final class FrameBlendingManager {
     }
 
     private static void writeFloatUBO(GpuBuffer ubo, float value) {
-        try (GpuBuffer.MappedView view = RenderSystem.getDevice().createCommandEncoder().mapBuffer(ubo, false, true)) {
+        try (GpuBufferSlice.MappedView view = ubo.map(false, true)) {
             Std140Builder b = Std140Builder.intoBuffer(view.data());
             b.putFloat(value);
             b.putInt(0);
@@ -338,7 +339,7 @@ public final class FrameBlendingManager {
     }
 
     private static void writeBlendParamsUBO(GpuBuffer ubo, float invTotalWeight, int sampleCount) {
-        try (GpuBuffer.MappedView view = RenderSystem.getDevice().createCommandEncoder().mapBuffer(ubo, false, true)) {
+        try (GpuBufferSlice.MappedView view = ubo.map(false, true)) {
             Std140Builder b = Std140Builder.intoBuffer(view.data());
             b.putFloat(invTotalWeight);
             b.putInt(sampleCount);

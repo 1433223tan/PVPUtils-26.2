@@ -87,7 +87,7 @@ public abstract class ItemInHandRendererMixin {
         }
     }
 
-    @Inject(method = "renderArmWithItem", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "submitArmWithItem", at = @At("HEAD"), cancellable = true)
     private void injectOldAnimation(AbstractClientPlayer abstractClientPlayer, float f, float g, InteractionHand interactionHand, float h, ItemStack itemStack, float i, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int j, CallbackInfo ci) {
         HeldItemPositionManager.beginHandRender(interactionHand);
         Minecraft client = Minecraft.getInstance();
@@ -173,18 +173,18 @@ public abstract class ItemInHandRendererMixin {
         }
     }
 
-    @Inject(method = "renderArmWithItem", at = @At("RETURN"))
+    @Inject(method = "submitArmWithItem", at = @At("RETURN"))
     private void pvp_utils$clearHeldItemRenderState(AbstractClientPlayer abstractClientPlayer, float f, float g, InteractionHand interactionHand, float h, ItemStack itemStack, float i, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int j, CallbackInfo ci) {
         HeldItemPositionManager.endHandRender();
     }
 
-    @Inject(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER, ordinal = 0))
+    @Inject(method = "submitArmWithItem", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER, ordinal = 0))
     private void applyHeldItemPosition(AbstractClientPlayer abstractClientPlayer, float f, float g, InteractionHand interactionHand, float h, ItemStack itemStack, float i, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int j, CallbackInfo ci) {
         applyHeldItemPositionOffset(interactionHand, poseStack);
     }
 
     @Inject(
-            method = "renderArmWithItem",
+            method = "submitArmWithItem",
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;applyItemArmTransform(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/entity/HumanoidArm;F)V",

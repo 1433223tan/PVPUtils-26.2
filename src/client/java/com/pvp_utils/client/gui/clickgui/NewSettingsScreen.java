@@ -180,7 +180,23 @@ public class NewSettingsScreen extends SkiaScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
+        if (shouldRedraw()) {
+            float maxScale = getUiScale(this.width, this.height);
+            int regionW = Math.min(this.width, Math.max(1, (int) Math.ceil(BASE_CARD_W * maxScale + 48f)));
+            int regionH = Math.min(this.height, Math.max(1, (int) Math.ceil(BASE_CARD_H * maxScale + 48f)));
+            int regionX = Math.max(0, (this.width - regionW) / 2);
+            int regionY = Math.max(0, (this.height - regionH) / 2);
+            Canvas canvas = com.pvp_utils.client.render.skia.SkiaRenderer.beginRegion(regionX, regionY, regionW, regionH);
+            if (canvas != null) {
+                drawSkia(canvas, this.width, this.height, mouseX, mouseY, delta);
+            }
+            com.pvp_utils.client.render.skia.SkiaRenderer.endRegion(graphics);
+            redrawRequested = false;
+            lastFrameWidth = this.width;
+            lastFrameHeight = this.height;
+            return;
+        }
+        com.pvp_utils.client.render.skia.SkiaRenderer.drawCachedRegion(graphics);
     }
 
     public void renderFrameEnd() {
@@ -318,6 +334,7 @@ public class NewSettingsScreen extends SkiaScreen {
 
     private void invalidateScrollLayout() {
         cachedScrollPage = null;
+        requestRedraw();
     }
 
     private int mainFramebufferId() {

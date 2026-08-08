@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Render.motionblur;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -162,7 +163,7 @@ public final class MotionBlurManager {
 
         GpuBuffer ubo = managedUBO.put(processor, uniformBuffers, uboKey);
         try {
-            try (GpuBuffer.MappedView view = RenderSystem.getDevice().createCommandEncoder().mapBuffer(ubo, false, true)) {
+            try (GpuBufferSlice.MappedView view = ubo.map(false, true)) {
                 Std140Builder b = Std140Builder.intoBuffer(view.data());
                 b.putMat4f(cameraState.getMvInverse());
                 b.putMat4f(cameraState.getProjInverse());

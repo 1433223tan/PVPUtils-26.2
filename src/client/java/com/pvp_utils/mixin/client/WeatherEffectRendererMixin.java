@@ -1,11 +1,9 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
-import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.WeatherEffectRenderer;
 import net.minecraft.client.renderer.state.level.WeatherRenderState;
-import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,10 +19,4 @@ public class WeatherEffectRendererMixin {
         }
     }
 
-    @Inject(method = "tickRainParticles", at = @At("HEAD"), cancellable = true)
-    private void pvp_utils$hideRainDrops(ClientLevel level, Camera camera, int ticks, ParticleStatus particleStatus, int particleCount, CallbackInfo ci) {
-        if (Config.hideRainParticles) {
-            ci.cancel();
-        }
-    }
 }

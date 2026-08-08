@@ -60,41 +60,6 @@ public abstract class CameraMixin {
         return Config.sneakAnimationSpeed >= 1.0f ? 0.0f : getSneakAnimationModifier();
     }
 
-    @ModifyArgs(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V"))
-    private void applyFreelookRotation(Args args) {
-        Minecraft client = Minecraft.getInstance();
-        if (FreelookManager.isActive() && this.entity == client.player) {
-            args.set(0, FreelookManager.getYaw());
-            args.set(1, FreelookManager.getPitch());
-        }
-    }
-
-    @Inject(method = "setup", at = @At("RETURN"))
-    private void pvp_utils$applyMotionCamera(Level level, Entity entity, boolean detached, boolean thirdPersonReverse, float partialTick, CallbackInfo ci) {
-        Minecraft client = Minecraft.getInstance();
-        if (entity != client.player) {
-            return;
-        }
-
-        if (MotionCameraManager.active(detached, entity)) {
-            this.setPosition(MotionCameraManager.updateAnchor(entity, partialTick));
-            float smoothDistance = MotionCameraManager.smoothDistance(partialTick, true);
-            this.move(-this.getMaxZoom(smoothDistance), 0.0f, 0.0f);
-            return;
-        }
-        if (Config.motionCamera && MotionCameraManager.transitioning()) {
-            float smoothDistance = MotionCameraManager.smoothDistance(partialTick, false);
-            if (smoothDistance > 0.001f) {
-                this.move(-this.getMaxZoom(smoothDistance), 0.0f, 0.0f);
-            }
-            return;
-        }
-        if (!Config.motionCamera) {
-            MotionCameraManager.reset();
-        }
-
-    }
-
     private float getCustomEyeHeight(LocalPlayer player, Pose pose) {
         float standingEyeHeight = player.getDimensions(Pose.STANDING).eyeHeight();
         if (pose != Pose.CROUCHING) {

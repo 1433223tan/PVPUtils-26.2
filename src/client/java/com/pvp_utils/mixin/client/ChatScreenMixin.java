@@ -64,7 +64,7 @@ public class ChatScreenMixin {
         commandSuggestions.showSuggestions(false);
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void highlightClientCommand(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (input != null && CommandManager.isClientCommandInput(input.getValue())) {
             int left = Math.max(0, input.getX());

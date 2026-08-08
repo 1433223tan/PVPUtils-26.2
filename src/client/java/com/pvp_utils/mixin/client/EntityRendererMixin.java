@@ -1,5 +1,6 @@
 package com.pvp_utils.mixin.client;
 
+import com.pvp_utils.Config;
 import com.pvp_utils.client.irc.IrcBridge;
 import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
 import com.pvp_utils.client.util.NameTagPlayerFilterState;
@@ -23,17 +24,28 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(EntityRenderer.class)
 public class EntityRendererMixin {
+    @Inject(method = "submitNameDisplay", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER))
+    private void pvp_utils$scaleNameTag(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
+        if (!Config.nameTag) return;
+        if (Config.nameTagOnlyPlayer && !((NameTagPlayerFilterState) state).pvp_utils$isNameTagRealPlayer()) return;
+        float scale = Math.max(0.5f, Math.min(3.0f, Config.nameTagScale));
+        if (Config.nameTagDynamicScale) {
+            scale *= Math.max(0.5f, Math.min(8.0f, (float) (Math.sqrt(Math.max(0.0, state.distanceToCameraSq)) / 8.0)));
+        }
+        poseStack.scale(scale, scale, scale);
+    }
+
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void pvp_utils$captureNameTagPlayerFilter(Entity entity, EntityRenderState state, float tickProgress, CallbackInfo ci) {
         ((NameTagPlayerFilterState) state).pvp_utils$setNameTagRealPlayer(isRealPlayer(entity));
     }
 
-    @Inject(method = "submitNameTag", at = @At("HEAD"))
+    @Inject(method = "submitNameDisplay", at = @At("HEAD"))
     private void pvp_utils$beginNameTagPlayerFilter(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
         NameTagPlayerFilterContext.setRealPlayer(((NameTagPlayerFilterState) state).pvp_utils$isNameTagRealPlayer());
     }
 
-    @Inject(method = "submitNameTag", at = @At("RETURN"))
+    @Inject(method = "submitNameDisplay", at = @At("RETURN"))
     private void pvp_utils$endNameTagPlayerFilter(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
         NameTagPlayerFilterContext.clear();
     }

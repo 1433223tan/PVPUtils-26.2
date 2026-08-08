@@ -62,7 +62,6 @@ loom {
 }
 
 
-sourceSets.client.java.exclude('**/ItemRendererMixin.java', '**/CustomBlockOutlineLevelRendererMixin.java', '**/WorldRenderLevelRendererMixin.java', '**/ClientConfigurationMixin.java', '**/MotionBlurGameRendererMixin.java', '**/MotionBlurLevelRendererMixin.java', '**/FrameBlendingManager.java', '**/MotionBlurManager.java', '**/NameTagFeatureRendererStorageMixin.java', '**/InputMethodFixMinecraftMixin.java')
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
