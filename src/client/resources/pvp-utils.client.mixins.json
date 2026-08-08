@@ -40,6 +40,7 @@
                    "OverlayTextureMixin",
                    "ChestRendererMixin",
                    "KeyboardInputMixin",
+                   "MinecraftMixin",
                    "MinecraftAltAccessor",
                    "GuiMixin",
                    "PlayerTabOverlayMixin",
@@ -89,7 +90,12 @@
                    "ChatComponentDrawingBackgroundGraphicsAccessor",
                    "ChatComponentDrawingFocusedGraphicsAccessor",
                    "BetterChatScreenMixin",
-                   "ClientNetworkMixin"
+                   "ClientNetworkMixin",
+                   "ClientPacketListenerMixin",
+                   "LightTextureMixin",
+                   "ScreenEffectRendererMixin",
+                   "GameRendererMixin",
+                   "ZoomGameRendererMixin"
                ],
     "injectors":  {
                       "defaultRequire":  0

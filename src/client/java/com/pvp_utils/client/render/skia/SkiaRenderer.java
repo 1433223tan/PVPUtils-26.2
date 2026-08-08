@@ -85,9 +85,9 @@ public class SkiaRenderer {
         pruneIdleSurfaces();
 
         var window = Minecraft.getInstance().getWindow();
-        int pw = window.getWidth();
-        int ph = window.getHeight();
-        currentScale = (float) window.getGuiScale();
+        int pw = window.getGuiScaledWidth();
+        int ph = window.getGuiScaledHeight();
+        currentScale = 1.0f;
 
         if (pw != lastPixelW || ph != lastPixelH || surface == null || dynamicTexture == null) {
             destroySurface();

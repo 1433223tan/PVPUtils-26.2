@@ -2,29 +2,17 @@ package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Combat.MainHandAssistManager;
-import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
-import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
-import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
-import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
-import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
-import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
-import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
-import com.pvp_utils.client.render.MainUI.PVPUtilsMultiplayerScreen;
-import com.pvp_utils.client.render.MainUI.PVPUtilsSingleplayerScreen;
-import com.pvp_utils.client.render.MainUI.PVPUtilsViaFabricPlusScreen;
-import com.pvp_utils.client.alt.AltManagerScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.InteractionHand;
@@ -83,13 +71,6 @@ public class MinecraftMixin {
             swingAccessor.pvp_utils$setSwingTime(-1);
             swingAccessor.pvp_utils$setSwinging(true);
             swingAccessor.pvp_utils$setSwingingArm(InteractionHand.MAIN_HAND);
-        }
-    }
-
-    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
-    private void hideAutoChestDepositScreen(Screen screen, CallbackInfo ci) {
-        if (AutoChestDepositManager.shouldHideContainerScreen(screen)) {
-            ci.cancel();
         }
     }
 
@@ -158,7 +139,7 @@ public class MinecraftMixin {
         AABB box = target.getBoundingBox();
         RandomSource random = target.getRandom();
         for (int i = 0; i < count; i++) {
-            LightningBolt lightning = new LightningBolt(EntityType.LIGHTNING_BOLT, client.level);
+            LightningBolt lightning = new LightningBolt(EntityTypes.LIGHTNING_BOLT, client.level);
             lightning.setVisualOnly(true);
             double x = target.getX() + (random.nextDouble() - 0.5D) * Math.max(0.2D, box.getXsize());
             double z = target.getZ() + (random.nextDouble() - 0.5D) * Math.max(0.2D, box.getZsize());
@@ -167,48 +148,4 @@ public class MinecraftMixin {
         }
     }
 
-    @Inject(
-            method = "runTick",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen()V"
-            )
-    )
-    private void pvp_utils$renderClickGuiFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
-        PotionStatusRenderer.getInstance().renderFrameEnd();
-        KeystrokesRenderer.getInstance().renderFrameEnd();
-        Minecraft client = (Minecraft) (Object) this;
-        if (client.gui.screen() instanceof NewSettingsScreen settingsScreen) {
-            settingsScreen.renderFrameEnd();
-        }
-        if (client.gui.screen() instanceof NeteaseMusicScreen musicScreen) {
-            musicScreen.renderFrameEnd();
-        }
-        if (client.gui.screen() instanceof PVPUtilsMainUI mainUI) {
-            mainUI.renderFrameEnd();
-        }
-        if (client.gui.screen() instanceof PVPUtilsSingleplayerScreen singleplayerScreen) {
-            singleplayerScreen.renderFrameEnd();
-        }
-        if (client.gui.screen() instanceof PVPUtilsMultiplayerScreen multiplayerScreen) {
-            multiplayerScreen.renderFrameEnd();
-        }
-        if (client.gui.screen() instanceof AltManagerScreen altManagerScreen) {
-            altManagerScreen.renderFrameEnd();
-        }
-        if (client.gui.screen() instanceof PVPUtilsViaFabricPlusScreen viaFabricPlusScreen) {
-            viaFabricPlusScreen.renderFrameEnd();
-        }
-    }
-
-    @Inject(
-            method = "runTick",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/platform/Window;updateDisplay(Lcom/mojang/blaze3d/TracyFrameCapture;)V"
-            )
-    )
-    private void pvp_utils$renderHudEditorFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
-        HudEditOverlay.getInstance().renderFrameEnd();
-    }
 }
